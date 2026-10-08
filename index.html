@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -36,7 +36,7 @@
   <script async src="https://sdk.crazygames.com/crazygames-sdk-v3.js" onload="window.dispatchEvent(new Event('crazygames-sdk-ready'))"></script>
 </head>
 <body>
-  <canvas id="game" width="1280" height="800" aria-label="Mega Tower Defense Spiel"></canvas>
+  <canvas id="game" width="1280" height="800" aria-label="Mega Tower Defense game"></canvas>
   <script>
     "use strict";
 
@@ -89,7 +89,7 @@
     const SLOT_4_COST = 35;
     const SLOT_5_COST = 90;
     const SAVE_KEY = "megaTowerDefenseProductionV1";
-    let rewardMessage = "Eine vollständig angesehene Werbung bringt 5 Gems.";
+    let rewardMessage = "Watch one full ad to earn 5 Gems.";
     let rewardMessageColor = "#8faab7";
     let freeTowerMessage = "";
     let crazySdkReady = false;
@@ -99,37 +99,37 @@
 
     const MAPS = [
       {
-        name: "SMARAGD-PASS", subtitle: "Ausgewogen und weitläufig", color: "#43c77a", ground: ["#244f3e", "#17382f"], road: "#756b56",
+        name: "EMERALD PASS", subtitle: "Balanced and wide open", color: "#43c77a", ground: ["#244f3e", "#17382f"], road: "#756b56",
         path: [{x:-40,y:115},{x:180,y:115},{x:180,y:305},{x:455,y:305},{x:455,y:145},{x:745,y:145},{x:745,y:485},{x:1010,y:485},{x:1010,y:260},{x:1320,y:260}]
       },
       {
-        name: "FROST-RISS", subtitle: "Lange eisige Serpentinen", color: "#69dfff", ground: ["#244a59", "#142f43"], road: "#7893a0",
+        name: "FROST RIFT", subtitle: "Long frozen switchbacks", color: "#69dfff", ground: ["#244a59", "#142f43"], road: "#7893a0",
         path: [{x:-40,y:490},{x:180,y:490},{x:180,y:180},{x:420,y:180},{x:420,y:430},{x:650,y:430},{x:650,y:120},{x:900,y:120},{x:900,y:390},{x:1100,y:390},{x:1100,y:225},{x:1320,y:225}]
       },
       {
-        name: "VULKAN-KERN", subtitle: "Kurzer Pfad, höheres Startgold", color: "#ff7652", ground: ["#4b2927", "#281c24"], road: "#654f48",
+        name: "VOLCANIC CORE", subtitle: "Short path, higher starting gold", color: "#ff7652", ground: ["#4b2927", "#281c24"], road: "#654f48",
         path: [{x:-40,y:150},{x:270,y:150},{x:270,y:470},{x:560,y:470},{x:560,y:210},{x:850,y:210},{x:850,y:490},{x:1080,y:490},{x:1080,y:285},{x:1320,y:285}]
       }
     ];
     const MISSIONS = [
-      {name:"GRÜNE REKRUTEN",subtitle:"Der erste Außenposten",map:0,waves:5,difficulty:.82,density:1,startGold:400,bosses:1,color:"#62db86"},
-      {name:"SMARAGD-WACHT",subtitle:"Mehr Feinde, weniger Pausen",map:0,waves:8,difficulty:1,density:1.05,startGold:375,bosses:1,color:"#35c977"},
-      {name:"FROST-PATROUILLE",subtitle:"Schnelle Feinde im Eis",map:1,waves:10,difficulty:1.16,density:1.1,startGold:395,bosses:1,color:"#68ddff"},
-      {name:"FROST-NACHT",subtitle:"Eliteeinheiten im Schneesturm",map:1,waves:12,difficulty:1.34,density:1.14,startGold:415,bosses:2,color:"#9d9cff"},
-      {name:"VULKAN-STURM",subtitle:"Gepanzerte Monsterhorden",map:2,waves:15,difficulty:1.52,density:1.18,startGold:455,bosses:2,color:"#ff865f"},
-      {name:"ERSTE FRONT",subtitle:"Die Aufwärmphase endet",map:2,waves:18,difficulty:1.72,density:1.22,startGold:485,bosses:2,color:"#ff5f71"},
-      {name:"NEBELKORRIDOR",subtitle:"Phantome greifen in Gruppen an",map:0,waves:20,difficulty:1.94,density:1.26,startGold:500,bosses:3,color:"#79d0a4"},
-      {name:"STAHLREGEN",subtitle:"Schwere Rüstung auf jeder Route",map:0,waves:20,difficulty:2.16,density:1.3,startGold:515,bosses:3,color:"#9fb5c6"},
-      {name:"KRISTALLFRONT",subtitle:"Schnelle Elitewellen im Frost",map:1,waves:22,difficulty:2.4,density:1.34,startGold:530,bosses:3,color:"#6eeaff"},
-      {name:"TITANENMARSCH",subtitle:"Giganten erreichen die Front",map:1,waves:22,difficulty:2.64,density:1.38,startGold:545,bosses:4,color:"#b78cff"},
-      {name:"EISIGE BELAGERUNG",subtitle:"Kaum Zeit zwischen den Angriffen",map:1,waves:24,difficulty:2.9,density:1.42,startGold:560,bosses:4,color:"#76aaff"},
-      {name:"INFERNO-PROTOKOLL",subtitle:"Feuer, Panzerung und Bosse",map:2,waves:24,difficulty:3.18,density:1.46,startGold:575,bosses:4,color:"#ff9a55"},
-      {name:"SCHATTENOFFENSIVE",subtitle:"Elitegegner dominieren den Pfad",map:0,waves:25,difficulty:3.48,density:1.5,startGold:590,bosses:4,color:"#b28be0"},
-      {name:"OMEGA-FESTUNG",subtitle:"Nur perfekte Verteidigung genügt",map:0,waves:27,difficulty:3.8,density:1.54,startGold:605,bosses:5,color:"#f0d069"},
-      {name:"BOSS-PARADE",subtitle:"Mehrere Kommandanten pro Angriff",map:2,waves:28,difficulty:4.14,density:1.58,startGold:620,bosses:5,color:"#ff6a54"},
-      {name:"ENDLOSE DÄMMERUNG",subtitle:"Lange Schlacht ohne Erholung",map:1,waves:30,difficulty:4.5,density:1.62,startGold:635,bosses:5,color:"#807cff"},
-      {name:"WELTENBRECHER",subtitle:"Die stärksten Horden erwachen",map:2,waves:32,difficulty:4.9,density:1.68,startGold:650,bosses:5,color:"#ff4772"},
-      {name:"FINALER WIDERSTAND",subtitle:"Die ultimative Mission",map:2,waves:35,difficulty:5.35,density:1.75,startGold:675,bosses:5,color:"#ffcf4d"}
+      {name:"GREEN RECRUITS",subtitle:"The first outpost",map:0,waves:5,difficulty:.82,density:1,startGold:400,bosses:1,color:"#62db86"},
+      {name:"EMERALD WATCH",subtitle:"More enemies, fewer breaks",map:0,waves:8,difficulty:1,density:1.05,startGold:375,bosses:1,color:"#35c977"},
+      {name:"FROST PATROL",subtitle:"Fast enemies on the ice",map:1,waves:10,difficulty:1.16,density:1.1,startGold:395,bosses:1,color:"#68ddff"},
+      {name:"FROST NIGHT",subtitle:"Elite units in the blizzard",map:1,waves:12,difficulty:1.34,density:1.14,startGold:415,bosses:2,color:"#9d9cff"},
+      {name:"VOLCANIC STORM",subtitle:"Armored monster hordes",map:2,waves:15,difficulty:1.52,density:1.18,startGold:455,bosses:2,color:"#ff865f"},
+      {name:"FIRST FRONT",subtitle:"The warm-up is over",map:2,waves:18,difficulty:1.72,density:1.22,startGold:485,bosses:2,color:"#ff5f71"},
+      {name:"FOG CORRIDOR",subtitle:"Phantoms attack in groups",map:0,waves:20,difficulty:1.94,density:1.26,startGold:500,bosses:3,color:"#79d0a4"},
+      {name:"STEEL RAIN",subtitle:"Heavy armor on every route",map:0,waves:20,difficulty:2.16,density:1.3,startGold:515,bosses:3,color:"#9fb5c6"},
+      {name:"CRYSTAL FRONT",subtitle:"Fast elite waves in the frost",map:1,waves:22,difficulty:2.4,density:1.34,startGold:530,bosses:3,color:"#6eeaff"},
+      {name:"TITAN MARCH",subtitle:"Giants reach the front",map:1,waves:22,difficulty:2.64,density:1.38,startGold:545,bosses:4,color:"#b78cff"},
+      {name:"ICY SIEGE",subtitle:"Barely any time between attacks",map:1,waves:24,difficulty:2.9,density:1.42,startGold:560,bosses:4,color:"#76aaff"},
+      {name:"INFERNO PROTOCOL",subtitle:"Fire, armor, and bosses",map:2,waves:24,difficulty:3.18,density:1.46,startGold:575,bosses:4,color:"#ff9a55"},
+      {name:"SHADOW OFFENSIVE",subtitle:"Elite enemies dominate the path",map:0,waves:25,difficulty:3.48,density:1.5,startGold:590,bosses:4,color:"#b28be0"},
+      {name:"OMEGA FORTRESS",subtitle:"Only perfect defense will do",map:0,waves:27,difficulty:3.8,density:1.54,startGold:605,bosses:5,color:"#f0d069"},
+      {name:"BOSS PARADE",subtitle:"Multiple commanders per assault",map:2,waves:28,difficulty:4.14,density:1.58,startGold:620,bosses:5,color:"#ff6a54"},
+      {name:"ENDLESS TWILIGHT",subtitle:"A long battle without relief",map:1,waves:30,difficulty:4.5,density:1.62,startGold:635,bosses:5,color:"#807cff"},
+      {name:"WORLDBREAKER",subtitle:"The strongest hordes awaken",map:2,waves:32,difficulty:4.9,density:1.68,startGold:650,bosses:5,color:"#ff4772"},
+      {name:"FINAL STAND",subtitle:"The ultimate mission",map:2,waves:35,difficulty:5.35,density:1.75,startGold:675,bosses:5,color:"#ffcf4d"}
     ];
     let path = MAPS[0].path.map(p => ({...p}));
     const pathWidths = 76;
@@ -152,88 +152,88 @@
 
     const TOWER_TYPES = [
       {
-        id: "gun", name: "MASCHINENGEWEHR", short: "MG-TURM", cost: 110,
+        id: "gun", name: "MACHINE GUN", short: "MG TOWER", cost: 110,
         damage: 14, range: 145, rate: 5.2, color: "#ffcc4d", accent: "#fff1a3",
-        description: "Hohe Feuerrate gegen einzelne Ziele."
+        description: "High fire rate against single targets."
       },
       {
-        id: "laser", name: "LASER-TURM", short: "LASER", cost: 165,
+        id: "laser", name: "LASER TOWER", short: "LASER", cost: 165,
         damage: 43, range: 180, rate: 1.7, color: "#ff4f9a", accent: "#ffb5dc",
-        description: "Präzise Energiestrahlen mit großer Reichweite."
+        description: "Precise energy beams with excellent range."
       },
       {
-        id: "ice", name: "EIS-TURM", short: "EIS", cost: 135,
+        id: "ice", name: "ICE TOWER", short: "ICE", cost: 135,
         damage: 20, range: 155, rate: 1.25, color: "#61dfff", accent: "#c9f8ff",
-        description: "Verlangsamt getroffene Monster deutlich."
+        description: "Greatly slows every monster it hits."
       },
       {
-        id: "rocket", name: "RAKETEN-TURM", short: "RAKETE", cost: 235,
+        id: "rocket", name: "ROCKET TOWER", short: "ROCKET", cost: 235,
         damage: 58, range: 185, rate: 0.48, color: "#ff7043", accent: "#ffd0a8", splash: 62,
-        description: "Langsame Raketen gegen dicht stehende Gruppen."
+        description: "Slow rockets damage tightly packed groups."
       },
       {
-        id: "tesla", name: "TESLA-BLITZ-TURM", short: "TESLA", cost: 190,
+        id: "tesla", name: "TESLA TOWER", short: "TESLA", cost: 190,
         damage: 48, range: 170, rate: 1.05, color: "#a783ff", accent: "#e4d7ff",
-        description: "Blitze springen auf weitere nahe Ziele."
+        description: "Lightning chains to additional nearby targets."
       },
       {
-        id: "poison", name: "GIFT-TURM", short: "GIFT", cost: 155, unlock: 6,
+        id: "poison", name: "POISON TOWER", short: "POISON", cost: 155, unlock: 6,
         damage: 12, range: 165, rate: 1.15, color: "#7ee65c", accent: "#d8ffc9",
-        description: "Gift verursacht zusätzlichen Schaden über Zeit."
+        description: "Poison deals additional damage over time."
       },
       {
-        id: "plasma", name: "PLASMA-TURM", short: "PLASMA", cost: 235, unlock: 8,
+        id: "plasma", name: "PLASMA TOWER", short: "PLASMA", cost: 235, unlock: 8,
         damage: 68, range: 195, rate: 1.35, color: "#cf62ff", accent: "#f0c5ff",
-        description: "Instabile Energie trifft Gegner besonders hart."
+        description: "Unstable energy strikes enemies especially hard."
       },
       {
-        id: "sniper", name: "SCHARFSCHÜTZE", short: "SNIPER", cost: 265, unlock: 11,
+        id: "sniper", name: "SHARPSHOOTER", short: "SNIPER", cost: 265, unlock: 11,
         damage: 230, range: 315, rate: .34, color: "#75f0bd", accent: "#d2ffed",
-        description: "Extrem hohe Reichweite und mächtige Einzelschüsse."
+        description: "Extreme range and devastating single shots."
       },
       {
-        id: "sun", name: "SONNEN-TURM", short: "SONNE", cost: 325, unlock: 15,
+        id: "sun", name: "SUN TOWER", short: "SUN", cost: 325, unlock: 15,
         damage: 30, range: 160, rate: .48, color: "#ffb52e", accent: "#fff0ad",
-        description: "Eine Nova trifft Gruppen, verliert aber mit Entfernung an Kraft."
+        description: "A nova hits groups but loses power over distance."
       },
       {
-        id: "helicopter", name: "HELIKOPTER-BASIS", short: "HELIKOPTER", cost: 325, unlock: 18,
+        id: "helicopter", name: "HELICOPTER BASE", short: "HELICOPTER", cost: 325, unlock: 18,
         damage: 105, range: 225, rate: .42, color: "#59e39f", accent: "#d4ffea",
-        description: "Kreist über dem Feld und wechselt mit jedem Level die Waffe.",
-        levels: ["Präzisionsschütze", "Sturmgewehr", "Bordgeschütz", "Vulkan-Minigun"]
+        description: "Circles the battlefield and changes weapons at every level.",
+        levels: ["Precision Rifle", "Assault Rifle", "Autocannon", "Vulcan Minigun"]
       },
       {
-        id: "airplane", name: "FLUGZEUG-HANGAR", short: "FLUGZEUG", cost: 370, unlock: 22,
+        id: "airplane", name: "AIRCRAFT HANGAR", short: "AIRCRAFT", cost: 370, unlock: 22,
         damage: 42, range: 250, rate: 1.4, color: "#65b7ff", accent: "#d5edff",
-        description: "Patrouilliert im großen Kreis und entwickelt Bomben und Raketen.",
-        levels: ["Doppelkanone", "Brandbomben", "Streubomben", "Lenkraketen"]
+        description: "Patrols a wide circle and develops bombs and missiles.",
+        levels: ["Twin Cannons", "Incendiary Bombs", "Cluster Bombs", "Guided Missiles"]
       },
       {
-        id: "mortar", name: "MÖRSER-TURM", short: "MÖRSER", cost: 255, unlock: 13,
+        id: "mortar", name: "MORTAR TOWER", short: "MORTAR", cost: 255, unlock: 13,
         damage: 86, range: 245, rate: .42, color: "#c7a56c", accent: "#fff0c9", splash: 88,
-        description: "Langsame Granaten verursachen großen Flächenschaden."
+        description: "Slow shells deal heavy area damage."
       },
       {
-        id: "chrono", name: "CHRONO-TURM", short: "CHRONO", cost: 240, unlock: 14,
+        id: "chrono", name: "CHRONO TOWER", short: "CHRONO", cost: 240, unlock: 14,
         damage: 8, range: 180, rate: .62, color: "#58e6d8", accent: "#cefffb",
-        description: "Zeitfelder verlangsamen ganze Gegnergruppen."
+        description: "Time fields slow entire groups of enemies."
       },
       {
-        id: "military", name: "MILITÄRBASIS", short: "MILITÄRBASIS", cost: 340, unlock: 24,
+        id: "military", name: "MILITARY BASE", short: "MILITARY BASE", cost: 340, unlock: 24,
         damage: 0, range: 120, rate: 0, color: "#8fba62", accent: "#e7ffc9",
-        description: "Produziert alle 60 Sekunden und zu Wellenbeginn ein Kampffahrzeug.",
-        levels: ["Späher-Wagen", "Schwerer Panzerwagen", "Geschütz-Wagen", "Belagerungspanzer"]
+        description: "Deploys a combat vehicle every 60 seconds and at each wave start.",
+        levels: ["Scout Car", "Armored Car", "Gun Truck", "Siege Tank"]
       }
     ];
 
     const ENEMY_TYPES = {
-      normal: { name: "Normales Monster", hp: 100, speed: 60, reward: 18, radius: 22, color: "#69d45c" },
-      fast: { name: "Schnelles Monster", hp: 50, speed: 112, reward: 14, radius: 18, color: "#ffd43b" },
-      armored: { name: "Panzer-Golem", hp: 280, speed: 42, reward: 34, radius: 27, color: "#7396bc", armor: .22 },
+      normal: { name: "Normal Monster", hp: 100, speed: 60, reward: 18, radius: 22, color: "#69d45c" },
+      fast: { name: "Fast Monster", hp: 50, speed: 112, reward: 14, radius: 18, color: "#ffd43b" },
+      armored: { name: "Armored Golem", hp: 280, speed: 42, reward: 34, radius: 27, color: "#7396bc", armor: .22 },
       phantom: { name: "Phantom", hp: 90, speed: 88, reward: 25, radius: 20, color: "#5cf1e6" },
-      brute: { name: "Fels-Bestie", hp: 520, speed: 31, reward: 52, radius: 31, color: "#c27a47", armor: .12 },
-      swarm: { name: "Schwarm-Läufer", hp: 34, speed: 135, reward: 10, radius: 14, color: "#ff82d5" },
-      boss: { name: "Boss-Monster", hp: 1000, speed: 35, reward: 135, radius: 38, color: "#e64444" }
+      brute: { name: "Rock Brute", hp: 520, speed: 31, reward: 52, radius: 31, color: "#c27a47", armor: .12 },
+      swarm: { name: "Swarm Runner", hp: 34, speed: 135, reward: 10, radius: 14, color: "#ff82d5" },
+      boss: { name: "Boss Monster", hp: 1000, speed: 35, reward: 135, radius: 38, color: "#e64444" }
     };
 
     function loadProgress() {
@@ -249,7 +249,7 @@
           freeTowerAdProgress=Math.max(0,Math.min(5,Math.floor(saved.freeTowerAdProgress||0)));
           unlockedTowers = [...new Set(["gun", "laser", "ice", "rocket", "tesla", ...saved.unlocked])].filter(id => TOWER_TYPES.some(t => t.id === id));
         }
-      } catch (_) { /* Das Spiel bleibt auch ohne verfügbaren Speicher spielbar. */ }
+      } catch (_) { /* The game remains playable even when storage is unavailable. */ }
     }
 
     function saveProgress() {
@@ -279,23 +279,23 @@
     function requestRewardedAd(kind){
       if(adInProgress||(kind==="gems"&&gameState!=="REWARDS")||(kind==="tower"&&gameState!=="FREE_TOWER"))return;
       if(kind==="tower"&&freeTowerAdProgress>=5)return;
-      if(kind==="tower"&&!TOWER_TYPES.some(t=>t.unlock&&!unlockedTowers.includes(t.id))){freeTowerMessage="Alle Türme sind bereits freigeschaltet.";return;}
-      if(!crazySdkReady){initializeCrazySdk();setAdMessage(kind,"Werbung ist nur in der CrazyGames-Version verfügbar.","#ffca68");return;}
-      adInProgress=true;setAdMessage(kind,"Werbung wird geladen …","#8fe8ff");
+      if(kind==="tower"&&!TOWER_TYPES.some(t=>t.unlock&&!unlockedTowers.includes(t.id))){freeTowerMessage="Every tower is already unlocked.";return;}
+      if(!crazySdkReady){initializeCrazySdk();setAdMessage(kind,"Ads are available only in the CrazyGames version.","#ffca68");return;}
+      adInProgress=true;setAdMessage(kind,"Loading ad…","#8fe8ff");
       let settled=false;
       const finish=()=>{
         if(settled)return;settled=true;adInProgress=false;
         if(kind==="gems"){
-          gems+=5;saveProgress();setAdMessage(kind,"Belohnung erhalten: +5 Gems!","#8fffb6");burst(W/2,H/2,"#c56dff",30,150);
+          gems+=5;saveProgress();setAdMessage(kind,"Reward claimed: +5 Gems!","#8fffb6");burst(W/2,H/2,"#c56dff",30,150);
         }else{
           freeTowerAdProgress=Math.min(5,freeTowerAdProgress+1);saveProgress();
-          freeTowerMessage=freeTowerAdProgress>=5?"5/5 geschafft – wähle jetzt deinen Turm!":`Werbung abgeschlossen: ${freeTowerAdProgress}/5`;
+          freeTowerMessage=freeTowerAdProgress>=5?"5/5 complete — choose your tower!":`Ad completed: ${freeTowerAdProgress}/5`;
         }
       };
-      const fail=()=>{if(settled)return;settled=true;adInProgress=false;setAdMessage(kind,"Werbung nicht verfügbar – keine Belohnung verbraucht.","#ff8ca0");};
+      const fail=()=>{if(settled)return;settled=true;adInProgress=false;setAdMessage(kind,"Ad unavailable — no reward was consumed.","#ff8ca0");};
       try{
         const result=window.CrazyGames.SDK.ad.requestAd("rewarded",{
-          adStarted:()=>setAdMessage(kind,"Werbung läuft …","#8fe8ff"),
+          adStarted:()=>setAdMessage(kind,"Ad in progress…","#8fe8ff"),
           adFinished:finish,
           adError:fail
         });
@@ -427,19 +427,19 @@
       drawTowerModel(TOWER_TYPES[4], 0, 0, 2.05, elapsed * .5);
       ctx.restore();
 
-      button({ x: 430, y: 500, w: 420, h: 78 }, "SPIEL STARTEN", "#168bc0", true, "Mission und Arsenal wählen");
-      button({ x: 480, y: 602, w: 320, h: 68 }, "SHOP", "#7c4dcc", true, "Türme & Features");
+      button({ x: 430, y: 500, w: 420, h: 78 }, "PLAY", "#168bc0", true, "Choose a mission and loadout");
+      button({ x: 480, y: 602, w: 320, h: 68 }, "SHOP", "#7c4dcc", true, "Towers & Features");
       button({ x: 820, y: 20, w: 180, h: 46 }, "GET GEMS", "#166b8e", true);
       drawGem(1048, 43, 18);
       text(`${gems}`, 1078, 43, 23, "#e7c5ff", "left", 950);
-      text(`${unlockedTowers.length}/${TOWER_TYPES.length} Türme  •  ${completedMissions.length}/${MISSIONS.length} Missionen  •  Bestwelle ${bestWave}`, W / 2, 720, 18, "#8fb7ca", "center", 600);
-      text("Fortschritt wird automatisch gespeichert", W / 2, 753, 15, "#648598", "center", 600);
+      text(`${unlockedTowers.length}/${TOWER_TYPES.length} Towers  •  ${completedMissions.length}/${MISSIONS.length} Missions  •  Best Wave ${bestWave}`, W / 2, 720, 18, "#8fb7ca", "center", 600);
+      text("Progress is saved automatically", W / 2, 753, 15, "#648598", "center", 600);
     }
 
     function drawMapSelect() {
       drawBackdrop(); drawMotes(0);
-      text("MISSIONSZENTRALE", W / 2, 58, 42, "#eafaff", "center", 950);
-      text("Schließe eine Mission ab, um die nächste freizuschalten", W / 2, 105, 18, "#83aabd", "center", 650);
+      text("MISSION CONTROL", W / 2, 58, 42, "#eafaff", "center", 950);
+      text("Complete a mission to unlock the next one", W / 2, 105, 18, "#83aabd", "center", 650);
       const pageCount=Math.ceil(MISSIONS.length/6);missionPage=Math.max(0,Math.min(missionPage,pageCount-1));
       MISSIONS.slice(missionPage*6,missionPage*6+6).forEach((mission, localIndex) => {
         const i=missionPage*6+localIndex,map=MAPS[mission.map],r=missionCard(localIndex),unlocked=isMissionUnlocked(i),complete=completedMissions.includes(i);
@@ -452,13 +452,13 @@
         text(`MISSION ${String(i+1).padStart(2,"0")}`,r.x+165,r.y+20,11,unlocked?"#668794":"#3c4c53","left",900);
         fittedText(mission.name,r.x+165,r.y+43,180,18,12,unlocked?mission.color:"#52636c","left",950);
         fittedText(mission.subtitle,r.x+165,r.y+69,185,14,10,unlocked?"#b2c8d1":"#52636c","left",650);
-        text(`${mission.waves} WELLEN`,r.x+165,r.y+105,16,unlocked?"#fff":"#52636c","left",900);
-        const difficulty=mission.difficulty<1.2?"LEICHT":mission.difficulty<2?"MITTEL":mission.difficulty<3?"SCHWER":mission.difficulty<4?"BRUTAL":"ALBTRAUM";text(difficulty,r.x+165,r.y+137,14,mission.color,"left",850);
-        text(`${mission.bosses}× BOSS-SPITZE`,r.x+165,r.y+160,12,unlocked?"#b08d91":"#46565e","left",750);
-        text(complete?"ABGESCHLOSSEN ✓":unlocked?"MISSION STARTEN":"GESPERRT",r.x+165,r.y+184,14,complete?"#ffd45a":unlocked?"#fff":"#52636c","left",900);
+        text(`${mission.waves} WAVES`,r.x+165,r.y+105,16,unlocked?"#fff":"#52636c","left",900);
+        const difficulty=mission.difficulty<1.2?"EASY":mission.difficulty<2?"MEDIUM":mission.difficulty<3?"HARD":mission.difficulty<4?"BRUTAL":"NIGHTMARE";text(difficulty,r.x+165,r.y+137,14,mission.color,"left",850);
+        text(`${mission.bosses}× BOSS PEAK`,r.x+165,r.y+160,12,unlocked?"#b08d91":"#46565e","left",750);
+        text(complete?"COMPLETED ✓":unlocked?"START MISSION":"LOCKED",r.x+165,r.y+184,14,complete?"#ffd45a":unlocked?"#fff":"#52636c","left",900);
       });
-      text("‹",485,742,40,missionPage>0?"#fff":"#354b55","center",950);text(`MISSIONSSEITE ${missionPage+1}/${pageCount}`,W/2,742,14,"#6f8e9b","center",850);text("›",795,742,40,missionPage<pageCount-1?"#fff":"#354b55","center",950);
-      text("‹ HAUPTMENÜ",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:180,h:50})?"#fff":"#83a3b3","left",800);
+      text("‹",485,742,40,missionPage>0?"#fff":"#354b55","center",950);text(`MISSION PAGE ${missionPage+1}/${pageCount}`,W/2,742,14,"#6f8e9b","center",850);text("›",795,742,40,missionPage<pageCount-1?"#fff":"#354b55","center",950);
+      text("‹ MAIN MENU",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:180,h:50})?"#fff":"#83a3b3","left",800);
     }
 
     function missionCard(i){return{x:48+(i%3)*410,y:145+Math.floor(i/3)*270,w:365,h:240};}
@@ -487,7 +487,7 @@
       for(const category of ["towers","features"]){
         const r=shopTabRect(category),active=shopCategory===category,hover=insideRect(mouse.x,mouse.y,r);
         fillRounded(r.x,r.y,r.w,r.h,12,active?"#24495e":hover?"#172f3d":"#0d202b",active?"#7fe1ff":"rgba(126,191,216,.3)",active?3:2);
-        text(category==="towers"?"TÜRME":"FEATURES",r.x+r.w/2,r.y+r.h/2,16,active?"#fff":"#7899a8","center",900);
+        text(category==="towers"?"TOWERS":"FEATURES",r.x+r.w/2,r.y+r.h/2,16,active?"#fff":"#7899a8","center",900);
       }
       if(shopCategory==="towers"){
         const premium=TOWER_TYPES.filter(t=>t.unlock),pageCount=Math.ceil(premium.length/4);
@@ -498,25 +498,25 @@
           fillRounded(r.x,r.y,r.w,r.h,18,"#102532",unlocked?tower.color:"rgba(126,191,216,.25)",unlocked?3:2);ctx.restore();
           drawTowerModel(tower,r.x+82,r.y+98,1.15,elapsed*.4);
           fittedText(tower.name,r.x+155,r.y+42,295,22,14,tower.accent,"left",950);
-          fittedText(tower.id==="military"?"Fahrzeug 180 LP  •  Einsatz 60s":`Schaden ${tower.damage}  •  Reichweite ${tower.range}`,r.x+155,r.y+78,295,15,11,"#c4d9e1","left",700);
+          fittedText(tower.id==="military"?"Vehicle 180 HP  •  Deploy 60s":`Damage ${tower.damage}  •  Range ${tower.range}`,r.x+155,r.y+78,295,15,11,"#c4d9e1","left",700);
           wrapText(tower.description,r.x+300,r.y+112,290,15,17,"#86a5b2",3);
-          if(unlocked) text("FREIGESCHALTET ✓",r.x+300,r.y+172,17,"#70e49a","center",900);
+          if(unlocked) text("UNLOCKED ✓",r.x+300,r.y+172,17,"#70e49a","center",900);
           else { drawGem(r.x+243,r.y+171,14); text(`${tower.unlock} GEMS`,r.x+266,r.y+172,18,affordable?"#e8c7ff":"#8b738f","left",950); }
         });
         const freeRect=freeTowerBannerRect(),freeHover=insideRect(mouse.x,mouse.y,freeRect);
         fillRounded(freeRect.x,freeRect.y-(freeHover?3:0),freeRect.w,freeRect.h,15,freeHover?"#243f50":"#132b38",freeTowerAdProgress>=5?"#ffd25e":"#68cce9",freeTowerAdProgress>=5?4:2);
-        text("GRATIS-TURM",freeRect.x+28,freeRect.y+23-(freeHover?3:0),18,freeTowerAdProgress>=5?"#ffd55c":"#a7eaff","left",950);
-        text(freeTowerAdProgress>=5?"Belohnung bereit – Turm auswählen":`${freeTowerAdProgress}/5 Werbungen abgeschlossen`,freeRect.x+28,freeRect.y+47-(freeHover?3:0),14,"#9db8c3","left",700);
-        text(freeTowerAdProgress>=5?"JETZT AUSWÄHLEN ›":"WERBUNGEN ANSEHEN ›",freeRect.x+freeRect.w-28,freeRect.y+33-(freeHover?3:0),16,"#fff","right",900);
+        text("FREE TOWER",freeRect.x+28,freeRect.y+23-(freeHover?3:0),18,freeTowerAdProgress>=5?"#ffd55c":"#a7eaff","left",950);
+        text(freeTowerAdProgress>=5?"Reward ready — choose a tower":`${freeTowerAdProgress}/5 ads completed`,freeRect.x+28,freeRect.y+47-(freeHover?3:0),14,"#9db8c3","left",700);
+        text(freeTowerAdProgress>=5?"CHOOSE NOW ›":"WATCH ADS ›",freeRect.x+freeRect.w-28,freeRect.y+33-(freeHover?3:0),16,"#fff","right",900);
         if(pageCount>1){
           text("‹",470,755,38,shopPage>0?"#fff":"#3d5663","center",950);
-          text(`SHOP-SEITE ${shopPage+1}/${pageCount}`,W/2,755,14,"#7796a5","center",850);
+          text(`SHOP PAGE ${shopPage+1}/${pageCount}`,W/2,755,14,"#7796a5","center",850);
           text("›",810,755,38,shopPage<pageCount-1?"#fff":"#3d5663","center",950);
         }
       }else{
         const features=[
-          {title:"4. LOADOUT-SLOT",subtitle:"Mehr taktische Freiheit",cost:SLOT_4_COST,unlocked:extraSlotUnlocked,color:"#9e7cff",lines:["4 Türme in die Mission mitnehmen","Maximal 4 Exemplare je Turm","Bis zu 16 Türme gleichzeitig"]},
-          {title:"5. LOADOUT-SLOT",subtitle:"Das Elite-Arsenal",cost:SLOT_5_COST,unlocked:fifthSlotUnlocked,color:"#ffb957",locked:!extraSlotUnlocked,lines:["5 Türme in die Mission mitnehmen","Maximal 3 Exemplare je Turm","Bis zu 15 Türme gleichzeitig"]}
+          {title:"4TH LOADOUT SLOT",subtitle:"More tactical freedom",cost:SLOT_4_COST,unlocked:extraSlotUnlocked,color:"#9e7cff",lines:["Bring 4 towers into each mission","Maximum 4 copies per tower","Up to 16 towers at once"]},
+          {title:"5TH LOADOUT SLOT",subtitle:"The elite arsenal",cost:SLOT_5_COST,unlocked:fifthSlotUnlocked,color:"#ffb957",locked:!extraSlotUnlocked,lines:["Bring 5 towers into each mission","Maximum 3 copies per tower","Up to 15 towers at once"]}
         ];
         features.forEach((feature,i)=>{
           const r=featureCardRect(i),hover=insideRect(mouse.x,mouse.y,r),blocked=feature.locked&&!feature.unlocked;
@@ -527,13 +527,13 @@
           text(feature.title,r.x+r.w/2,r.y+164,24,feature.color,"center",950);
           text(feature.subtitle,r.x+r.w/2,r.y+196,15,"#98b5c1","center",700);
           feature.lines.forEach((line,lineIndex)=>text(`✓  ${line}`,r.x+45,r.y+238+lineIndex*34,16,"#d5e7ed","left",700));
-          if(feature.unlocked)text("FREIGESCHALTET ✓",r.x+r.w/2,r.y+350,18,"#83eea8","center",950);
-          else if(blocked)text("ZUERST SLOT 4 FREISCHALTEN",r.x+r.w/2,r.y+350,16,"#778c95","center",900);
+          if(feature.unlocked)text("UNLOCKED ✓",r.x+r.w/2,r.y+350,18,"#83eea8","center",950);
+          else if(blocked)text("UNLOCK SLOT 4 FIRST",r.x+r.w/2,r.y+350,16,"#778c95","center",900);
           else {drawGem(r.x+r.w/2-48,r.y+350,15);text(`${feature.cost} GEMS`,r.x+r.w/2-22,r.y+350,19,gems>=feature.cost?"#efd7ff":"#8d748f","left",950);}
         });
-        text(`Aktuelles Limit: ${placementLimit()} je Turmtyp  •  maximal ${loadoutSlots()*placementLimit()} Türme`,W/2,665,17,"#8eb2c1","center",750);
+        text(`Current limit: ${placementLimit()} per tower type  •  ${loadoutSlots()*placementLimit()} towers maximum`,W/2,665,17,"#8eb2c1","center",750);
       }
-      text("‹ HAUPTMENÜ",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:180,h:50})?"#fff":"#83a3b3","left",800);
+      text("‹ MAIN MENU",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:180,h:50})?"#fff":"#83a3b3","left",800);
       drawToastOverlay();
     }
 
@@ -543,38 +543,38 @@
     function drawRewards(){
       drawBackdrop();drawMotes(0);
       text("GET GEMS",W/2,76,46,"#eafaff","center",950);
-      text("Belohnungswerbung über CrazyGames",W/2,126,18,"#8eafbd","center",650);
+      text("Rewarded ad powered by CrazyGames",W/2,126,18,"#8eafbd","center",650);
       drawGem(1080,66,19);text(`${gems} GEMS`,1110,67,20,"#e7c5ff","left",950);
       fillRounded(300,178,680,450,22,"rgba(8,25,35,.94)","rgba(104,210,247,.34)",2);
       drawGem(W/2,278,58);
       text("+5 GEMS",W/2,372,37,"#e7c5ff","center",950);
-      text("Schau die Werbung vollständig an, um die Belohnung zu erhalten.",W/2,414,16,"#9ab6c2","center",650);
-      button({x:430,y:455,w:420,h:82},adInProgress?"WERBUNG LÄUFT …":"WERBUNG ANSCHAUEN","#208cad",crazySdkReady&&!adInProgress,"1 Werbung  •  5 Gems");
+      text("Watch the full ad to receive your reward.",W/2,414,16,"#9ab6c2","center",650);
+      button({x:430,y:455,w:420,h:82},adInProgress?"AD IN PROGRESS…":"WATCH AD","#208cad",crazySdkReady&&!adInProgress,"1 ad  •  5 Gems");
       text(rewardMessage,W/2,580,17,rewardMessageColor,"center",800);
-      if(!crazySdkReady)text("Die Schaltfläche wird auf CrazyGames automatisch aktiviert.",W/2,608,13,"#5f7c88","center",650);
-      text("‹ HAUPTMENÜ",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:180,h:50})?"#fff":"#83a3b3","left",800);
+      if(!crazySdkReady)text("This button activates automatically on CrazyGames.",W/2,608,13,"#5f7c88","center",650);
+      text("‹ MAIN MENU",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:180,h:50})?"#fff":"#83a3b3","left",800);
     }
 
     function drawFreeTower(){
       drawBackdrop();drawMotes(0);
-      text("GRATIS-TURM",W/2,65,44,"#eafaff","center",950);
+      text("FREE TOWER",W/2,65,44,"#eafaff","center",950);
       drawGem(1060,64,20);text(`${gems} GEMS`,1090,65,22,"#e7c5ff","left",950);
       const locked=TOWER_TYPES.filter(t=>t.unlock&&!unlockedTowers.includes(t.id));
       if(!locked.length){
-        text("ARSENAL KOMPLETT",W/2,300,42,"#8fffb6","center",950);
-        text("Du hast bereits jeden verfügbaren Turm freigeschaltet.",W/2,360,20,"#9cb7c2","center",700);
-        button({x:455,y:440,w:370,h:72},"ZUM SHOP","#327899",true);
+        text("ARSENAL COMPLETE",W/2,300,42,"#8fffb6","center",950);
+        text("You have already unlocked every available tower.",W/2,360,20,"#9cb7c2","center",700);
+        button({x:455,y:440,w:370,h:72},"BACK TO SHOP","#327899",true);
       }else if(freeTowerAdProgress<5){
-        text("Schau fünf Belohnungswerbungen und wähle danach einen Turm.",W/2,116,18,"#8eafbd","center",650);
+        text("Watch five rewarded ads, then choose one tower.",W/2,116,18,"#8eafbd","center",650);
         fillRounded(300,180,680,420,22,"rgba(8,25,35,.94)","rgba(104,210,247,.34)",2);
         text(`${freeTowerAdProgress}/5`,W/2,260,58,freeTowerAdProgress?"#ffd45a":"#d5edf5","center",950);
-        text("WERBUNGEN ABGESCHLOSSEN",W/2,315,16,"#7798a7","center",850);
+        text("ADS COMPLETED",W/2,315,16,"#7798a7","center",850);
         for(let i=0;i<5;i++)fillRounded(480+i*68,350,52,20,10,i<freeTowerAdProgress?"#ffd45a":"#193746",i<freeTowerAdProgress?"#fff2a2":"#426578",2);
-        button({x:430,y:420,w:420,h:82},adInProgress?"WERBUNG LÄUFT …":"WERBUNG ANSCHAUEN","#bd7b25",crazySdkReady&&!adInProgress,`${freeTowerAdProgress}/5 abgeschlossen`);
-        text(freeTowerMessage||"Jede Werbung muss vollständig abgeschlossen werden.",W/2,555,16,freeTowerAdProgress?"#b8d4df":"#708e9b","center",800);
-        if(!crazySdkReady)text("Die Schaltfläche wird auf CrazyGames automatisch aktiviert.",W/2,580,13,"#5f7c88","center",650);
+        button({x:430,y:420,w:420,h:82},adInProgress?"AD IN PROGRESS…":"WATCH AD","#bd7b25",crazySdkReady&&!adInProgress,`${freeTowerAdProgress}/5 completed`);
+        text(freeTowerMessage||"Every ad must be watched to completion.",W/2,555,16,freeTowerAdProgress?"#b8d4df":"#708e9b","center",800);
+        if(!crazySdkReady)text("This button activates automatically on CrazyGames.",W/2,580,13,"#5f7c88","center",650);
       }else{
-        text("5/5 geschafft – wähle einen Turm kostenlos aus",W/2,115,19,"#ffd45a","center",850);
+        text("5/5 complete — choose one tower for free",W/2,115,19,"#ffd45a","center",850);
         const pages=Math.ceil(locked.length/4);freeTowerPage=Math.max(0,Math.min(freeTowerPage,pages-1));
         locked.slice(freeTowerPage*4,freeTowerPage*4+4).forEach((tower,i)=>{
           const r=shopCard(i),hover=insideRect(mouse.x,mouse.y,r);
@@ -583,9 +583,9 @@
           drawTowerModel(tower,r.x+82,r.y+98,1.15,elapsed*.4);
           fittedText(tower.name,r.x+155,r.y+42,295,22,14,tower.accent,"left",950);
           wrapText(tower.description,r.x+300,r.y+94,290,15,17,"#86a5b2",3);
-          text("GRATIS FREISCHALTEN",r.x+300,r.y+172,17,"#ffd45a","center",950);
+          text("UNLOCK FOR FREE",r.x+300,r.y+172,17,"#ffd45a","center",950);
         });
-        if(pages>1){text("‹",470,755,38,freeTowerPage>0?"#fff":"#3d5663","center",950);text(`AUSWAHL ${freeTowerPage+1}/${pages}`,W/2,755,14,"#7796a5","center",850);text("›",810,755,38,freeTowerPage<pages-1?"#fff":"#3d5663","center",950);}
+        if(pages>1){text("‹",470,755,38,freeTowerPage>0?"#fff":"#3d5663","center",950);text(`SELECTION ${freeTowerPage+1}/${pages}`,W/2,755,14,"#7796a5","center",850);text("›",810,755,38,freeTowerPage<pages-1?"#fff":"#3d5663","center",950);}
       }
       text("‹ SHOP",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:140,h:50})?"#fff":"#83a3b3","left",800);
       drawToastOverlay();
@@ -595,8 +595,8 @@
       if(!adInProgress)return;
       ctx.save();ctx.fillStyle="rgba(2,8,13,.78)";ctx.fillRect(0,0,W,H);
       fillRounded(W/2-250,H/2-65,500,130,20,"#091c28","#73ddff",3);
-      text("WERBUNG LÄUFT",W/2,H/2-18,28,"#fff","center",950);
-      text("Die Belohnung folgt nach vollständigem Abschluss.",W/2,H/2+28,15,"#9fc1cf","center",700);ctx.restore();
+      text("AD IN PROGRESS",W/2,H/2-18,28,"#fff","center",950);
+      text("Your reward arrives after the ad is completed.",W/2,H/2+28,15,"#9fc1cf","center",700);ctx.restore();
     }
 
     function loadoutCard(i) {
@@ -609,9 +609,9 @@
     function drawLoadout() {
       drawBackdrop();
       drawMotes(0);
-      text("WÄHLE DEIN ARSENAL", W / 2, 73, 45, "#eafaff", "center", 950);
+      text("CHOOSE YOUR LOADOUT", W / 2, 73, 45, "#eafaff", "center", 950);
       const slots=loadoutSlots();
-      text(`Genau ${slots} Türme auswählen  •  ${selectedLoadout.length}/${slots} bereit`, W / 2, 125, 22, selectedLoadout.length === slots ? "#ffd65c" : "#83b7cc", "center", 700);
+      text(`Choose exactly ${slots} towers  •  ${selectedLoadout.length}/${slots} ready`, W / 2, 125, 22, selectedLoadout.length === slots ? "#ffd65c" : "#83b7cc", "center", 700);
 
       const available = TOWER_TYPES.filter(t=>unlockedTowers.includes(t.id));
       const pageCount = Math.ceil(available.length/5);
@@ -635,9 +635,9 @@
         }
         drawTowerModel(tower, r.x + r.w / 2, r.y + 105, 1.25, elapsed * .45);
         fittedText(tower.name, r.x + r.w / 2, r.y + 184, r.w - 28, 18, 12, tower.accent, "center", 900);
-        fittedText(tower.id==="military"?"Fahrzeug  180 LP":`Schaden  ${tower.damage}`, r.x + 22, r.y + 226, r.w-40, 17, 12, "#ecf8ff", "left", 700);
-        fittedText(tower.id==="military"?"Neue Einheit / Welle":`Reichweite  ${tower.range}`, r.x + 22, r.y + 259, r.w-40, 17, 12, "#ecf8ff", "left", 700);
-        fittedText(tower.id==="military"?"Zusätzlich alle 60s":`Feuerrate  ${tower.rate}/s`, r.x + 22, r.y + 292, r.w-40, 17, 12, "#ecf8ff", "left", 700);
+        fittedText(tower.id==="military"?"Vehicle  180 HP":`Damage  ${tower.damage}`, r.x + 22, r.y + 226, r.w-40, 17, 12, "#ecf8ff", "left", 700);
+        fittedText(tower.id==="military"?"New unit / wave":`Range  ${tower.range}`, r.x + 22, r.y + 259, r.w-40, 17, 12, "#ecf8ff", "left", 700);
+        fittedText(tower.id==="military"?"Plus every 60s":`Fire rate  ${tower.rate}/s`, r.x + 22, r.y + 292, r.w-40, 17, 12, "#ecf8ff", "left", 700);
         text(`${tower.cost} Gold`, r.x + r.w / 2, r.y + 329, 19, "#ffd45a", "center", 900);
         wrapText(tower.description, r.x + r.w / 2, r.y + 365, r.w - 30, 15, 17, "#91aebb", 3);
       });
@@ -645,22 +645,23 @@
       if(pageCount>1){
         text("‹",25,410,48,loadoutPage>0?"#fff":"#3d5663","center",900);
         text("›",1255,410,48,loadoutPage<pageCount-1?"#fff":"#3d5663","center",900);
-        text(`SEITE ${loadoutPage+1}/${pageCount}`,W/2,642,14,"#678593","center",800);
+        text(`PAGE ${loadoutPage+1}/${pageCount}`,W/2,642,14,"#678593","center",800);
       }
 
       if (selectedLoadout.length === slots) {
-        button({ x: 430, y: 670, w: 420, h: 82 }, "KAMPF STARTEN", "#2aa866", true, `Startgold: ${MISSIONS[selectedMission].startGold}  •  ${MISSIONS[selectedMission].waves} Wellen`);
+        button({ x: 430, y: 670, w: 420, h: 82 }, "START BATTLE", "#2aa866", true, `Starting Gold: ${MISSIONS[selectedMission].startGold}  •  ${MISSIONS[selectedMission].waves} Waves`);
       } else {
-        text("Wähle noch " + (slots - selectedLoadout.length) + (slots-selectedLoadout.length===1 ? " Turm" : " Türme"), W / 2, 711, 22, "#7796a6", "center", 800);
+        text("Choose " + (slots - selectedLoadout.length) + " more " + (slots-selectedLoadout.length===1 ? "tower" : "towers"), W / 2, 711, 22, "#7796a6", "center", 800);
       }
       text(`MISSION: ${MISSIONS[selectedMission].name}`,W-45,45,16,MISSIONS[selectedMission].color,"right",900);
-      text("‹ MISSIONEN", 45, 45, 18, insideRect(mouse.x, mouse.y, { x: 25, y: 20, w: 165, h: 50 }) ? "#fff" : "#83a3b3", "left", 800);
+      text("‹ MISSIONS", 45, 45, 18, insideRect(mouse.x, mouse.y, { x: 25, y: 20, w: 165, h: 50 }) ? "#fff" : "#83a3b3", "left", 800);
       drawToastOverlay();
     }
 
     function drawToastOverlay(){
       if(toast.time<=0)return;const alpha=Math.min(1,toast.time*2);ctx.save();ctx.globalAlpha=alpha;
-      fillRounded(W/2-245,92,490,54,14,"rgba(5,14,22,.92)",toast.color,2);text(toast.text,W/2,119,21,toast.color,"center",900);ctx.restore();
+      const playing=gameState==="PLAYING",r=playing?{x:W/2-245,y:92,w:490,h:54}:{x:25,y:92,w:390,h:54};
+      fillRounded(r.x,r.y,r.w,r.h,14,"rgba(5,14,22,.92)",toast.color,2);fittedText(toast.text,r.x+r.w/2,r.y+r.h/2,r.w-24,21,12,toast.color,"center",900);ctx.restore();
     }
 
     function wrapText(value, x, y, maxWidth, fontSize, lineHeight, color, maxLines=Infinity) {
@@ -768,13 +769,13 @@
       drawCoin(165, 49, 17);
       text(`${gold}`, 190, 49, 27, "#ffd45b", "left", 950);
       drawGem(302,49,14);text(`${gems}`,324,49,22,"#e7c5ff","left",950);
-      text(`WELLE ${Math.max(1, wave)}/${MISSIONS[selectedMission].waves}`, 395, 49, 23, "#8be7ff", "left", 950);
+      text(`WAVE ${Math.max(1, wave)}/${MISSIONS[selectedMission].waves}`, 395, 49, 23, "#8be7ff", "left", 950);
       if (!waveActive && nextWaveCountdown > 0) {
         fillRounded(895, 18, 365, 62, 16, "rgba(5,15,24,.9)", "rgba(255,207,77,.45)", 2);
-        text(`Nächste Welle in ${Math.ceil(nextWaveCountdown)}`, 1078, 49, 23, "#ffd65a", "center", 900);
+        text(`Next Wave in ${Math.ceil(nextWaveCountdown)}`, 1078, 49, 23, "#ffd65a", "center", 900);
       } else if (waveActive) {
         fillRounded(990, 18, 270, 62, 16, "rgba(5,15,24,.9)", "rgba(127,220,255,.25)", 2);
-        text(`${enemies.length + waveQueue.length} Gegner`, 1125, 49, 21, "#d8f6ff", "center", 800);
+        text(`${enemies.length + waveQueue.length} Enemies`, 1125, 49, 21, "#d8f6ff", "center", 800);
       }
       [1,2,3,5].forEach((speed,i)=>{
         const r=speedButtonRect(i),active=gameSpeed===speed,hover=insideRect(mouse.x,mouse.y,r);
@@ -818,7 +819,7 @@
       ctx.fillStyle = g; ctx.fillRect(0, FIELD_H, W, H - FIELD_H);
       ctx.strokeStyle = "rgba(95,213,255,.3)"; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(0, FIELD_H); ctx.lineTo(W, FIELD_H); ctx.stroke();
-      text(`ARSENAL  •  MAX. ${placementLimit()} JE TURMTYP`, 70, 684, 17, "#7397a8", "left", 900);
+      text(`ARSENAL  •  MAX ${placementLimit()} PER TOWER`, 70, 684, 17, "#7397a8", "left", 900);
 
       selectedLoadout.forEach((id, i) => {
         const tower = getTowerType(id);
@@ -849,25 +850,25 @@
       fillRounded(945, 658, 300, 130, 14, "rgba(10,27,37,.94)", "rgba(116,183,208,.25)", 1);
       if(selectedVehicle&&vehicles.includes(selectedVehicle)){
         const v=selectedVehicle;
-        text(v.level===4?"BELAGERUNGSPANZER":v.level===3?"GESCHÜTZ-WAGEN":v.level===2?"PANZERWAGEN":"SPÄHER-WAGEN",1095,681,15,"#dfffad","center",950);
-        text(`LEBEN ${Math.ceil(v.hp)}/${v.maxHp}`,1095,708,14,"#bcd5c5","center",800);
-        text(v.range>0?`GESCHÜTZ-RADIUS ${v.range}`:"RAMMSCHADEN = RESTLEBEN",1095,733,13,"#8fba9a","center",700);
-        text("Fährt dem Feind entgegen",1095,760,13,"#6f9181","center",650);
+        text(v.level===4?"SIEGE TANK":v.level===3?"GUN TRUCK":v.level===2?"ARMORED CAR":"SCOUT CAR",1095,681,15,"#dfffad","center",950);
+        text(`HEALTH ${Math.ceil(v.hp)}/${v.maxHp}`,1095,708,14,"#bcd5c5","center",800);
+        text(v.range>0?`WEAPON RANGE ${v.range}`:"RAM DAMAGE = HEALTH",1095,733,13,"#8fba9a","center",700);
+        text("Drives toward the enemy",1095,760,13,"#6f9181","center",650);
       } else if(selectedPlacedTower && towers.includes(selectedPlacedTower)){
         const t=selectedPlacedTower,cost=upgradeCost(t),max=t.level>=4;
         text(`${t.type.short}  •  LEVEL ${t.level}`,1095,677,16,t.type.accent,"center",950);
         text(towerAbility(t),1095,702,14,t.type.color,"center",850);
-        text(t.type.id==="military"?`Fahrzeug ${t.vehicleHp} LP  •  Einsatz ${Math.ceil(t.deployTimer)}s`:`Schaden ${Math.round(t.damage)}  Reichweite ${Math.round(t.range)}`,1095,723,13,"#c3dce6","center",700);
+        text(t.type.id==="military"?`Vehicle ${t.vehicleHp} HP  •  Deploy ${Math.ceil(t.deployTimer)}s`:`Damage ${Math.round(t.damage)}  Range ${Math.round(t.range)}`,1095,723,13,"#c3dce6","center",700);
         const r=upgradeButtonRect();button(r,max?"MAXIMUM":`UPGRADE  ${cost} G`,t.type.color,!max&&gold>=cost);
       } else if (selectedTowerType) {
         const tower = getTowerType(selectedTowerType);
-        text("PLATZIERUNG AKTIV", 1095, 692, 16, tower.color, "center", 900);
-        text("Auf freie Wiese klicken", 1095, 724, 17, "#d6ebf2", "center", 700);
-        text("Rechtsklick / ESC: abbrechen", 1095, 756, 13, "#708d9a", "center", 600);
+        text("PLACEMENT ACTIVE", 1095, 692, 16, tower.color, "center", 900);
+        text("Click on open ground", 1095, 724, 17, "#d6ebf2", "center", 700);
+        text("Right-click / ESC: cancel", 1095, 756, 13, "#708d9a", "center", 600);
       } else {
-        text("TURM WÄHLEN", 1095, 704, 17, "#8eb4c3", "center", 900);
-        text("Turm bauen oder platzierten", 1095, 734, 15, "#718e9b", "center", 600);
-        text("Turm für Upgrades anklicken",1095,756,14,"#718e9b","center",600);
+        text("CHOOSE A TOWER", 1095, 704, 17, "#8eb4c3", "center", 900);
+        text("Build a new tower", 1095, 734, 15, "#718e9b", "center", 600);
+        text("Click a tower to upgrade it",1095,756,14,"#718e9b","center",600);
       }
     }
 
@@ -994,11 +995,11 @@
     function currentTowerCost(type){return Math.round(type.cost*Math.pow(1.18,placedCounts[type.id]||0));}
     function towerAbility(tower){
       if(tower.type.levels)return tower.type.levels[tower.level-1];
-      if(tower.type.id==="ice")return tower.level>=3?"Permafrost":"Frostverlangsamung";
-      if(tower.type.id==="rocket")return tower.level>=4?"Doppelsprengkopf":"Flächenrakete";
-      if(tower.type.id==="chrono")return tower.level>=3?"Zeitstillstand":"Zeitfeld";
-      if(tower.type.id==="mortar")return tower.level>=3?"Schwere Granate":"Flächenbeschuss";
-      return tower.level>=4?"Überladung":"Verbesserte Feuerkraft";
+      if(tower.type.id==="ice")return tower.level>=3?"Permafrost":"Frost Slow";
+      if(tower.type.id==="rocket")return tower.level>=4?"Dual Warhead":"Area Rocket";
+      if(tower.type.id==="chrono")return tower.level>=3?"Time Stop":"Time Field";
+      if(tower.type.id==="mortar")return tower.level>=3?"Heavy Shell":"Area Bombardment";
+      return tower.level>=4?"Overcharge":"Enhanced Firepower";
     }
 
     function applyLevelStats(tower){
@@ -1108,7 +1109,7 @@
       selectedTowerType = null;
       selectedPlacedTower = null;
       selectedVehicle = null;
-      toast = { text: "Bereit zur Verteidigung!", time: 2.2, color: "#8fe8ff" };
+      toast = { text: "Defense ready!", time: 2.2, color: "#8fe8ff" };
     }
 
     function beginWave() {
@@ -1132,7 +1133,7 @@
       for(const tower of towers)if(tower.type.id==="military")deployVehicle(tower,true);
       spawnTimer = .2;
       spawnedThisWave = 0;
-      toast = { text: bossCount ? `WELLE ${wave} — ${bossCount}× BOSS-ALARM!` : `WELLE ${wave}`, time: 2.4, color: bossCount ? "#ff6670" : "#8fe8ff" };
+      toast = { text: bossCount ? `WAVE ${wave} — ${bossCount}× BOSS ALERT!` : `WAVE ${wave}`, time: 2.4, color: bossCount ? "#ff6670" : "#8fe8ff" };
     }
 
     function spawnEnemy(kind) {
@@ -1180,7 +1181,7 @@
           hp--;
           shake = 10;
           burst(enemy.x, enemy.y, "#ff5364", 18, 140);
-          toast = { text: "Der Kern wurde getroffen!", time: 1.4, color: "#ff7180" };
+          toast = { text: "The core was hit!", time: 1.4, color: "#ff7180" };
           if (hp <= 0) {
             hp = 0;
             crazyGameEvent("gameplayStop");
@@ -1210,7 +1211,7 @@
           toast={text:"",time:0,color:"#fff"};updateEffects(dt);return;
         }
         saveProgress();
-        toast = { text: `Welle geschafft! +${bonus} Gold${gemReward?"  +1 Gem":""}`, time: 3, color: gemReward?"#e7b8ff":"#ffd45b" };
+        toast = { text: `Wave cleared! +${bonus} Gold${gemReward?"  +1 Gem":""}`, time: 3, color: gemReward?"#e7b8ff":"#ffd45b" };
       }
 
       updateEffects(dt);
@@ -1518,24 +1519,24 @@
       ctx.save(); ctx.translate(W/2, 205); ctx.rotate(Math.sin(elapsed*1.2)*.01);
       ctx.shadowColor = "#ff3e55"; ctx.shadowBlur = 35;
       text("GAME OVER", 0, 0, 76, "#ff5a6d", "center", 950); ctx.restore();
-      text("Der Energiekern ist gefallen", W/2, 285, 25, "#afc3cc", "center", 650);
+      text("The energy core has fallen", W/2, 285, 25, "#afc3cc", "center", 650);
       fillRounded(390, 345, 500, 145, 20, "rgba(8,20,29,.9)", "rgba(255,94,112,.35)", 2);
-      text("ERREICHTE WELLE", W/2, 385, 18, "#829ba7", "center", 800);
+      text("WAVE REACHED", W/2, 385, 18, "#829ba7", "center", 800);
       text(`${wave}`, W/2, 442, 52, "#ffd25a", "center", 950);
-      text(`BESTWELLE  ${bestWave}`,W/2,482,16,"#94b0bd","center",800);
-      button({x:430,y:560,w:420,h:88}, "ERNEUT VERSUCHEN", "#b72f48", true, "Zurück zum Hauptmenü");
+      text(`BEST WAVE  ${bestWave}`,W/2,482,16,"#94b0bd","center",800);
+      button({x:430,y:560,w:420,h:88}, "TRY AGAIN", "#b72f48", true, "Return to the main menu");
     }
 
     function drawVictory(dt){
       drawBackdrop();drawMotes(dt);ctx.fillStyle="rgba(20,55,36,.28)";ctx.fillRect(0,0,W,H);
-      ctx.save();ctx.shadowColor="#78ffae";ctx.shadowBlur=40;text("MISSION GESCHAFFT",W/2,155,62,"#8fffc0","center",950);ctx.restore();
+      ctx.save();ctx.shadowColor="#78ffae";ctx.shadowBlur=40;text("MISSION COMPLETE",W/2,155,62,"#8fffc0","center",950);ctx.restore();
       text(MISSIONS[selectedMission].name,W/2,225,28,MISSIONS[selectedMission].color,"center",900);
       fillRounded(385,285,510,190,22,"rgba(7,24,27,.92)","rgba(133,255,183,.45)",3);
-      text(`${MISSIONS[selectedMission].waves} WELLEN VERTEIDIGT`,W/2,330,20,"#b9d9d0","center",800);
+      text(`${MISSIONS[selectedMission].waves} WAVES DEFENDED`,W/2,330,20,"#b9d9d0","center",800);
       drawGem(W/2-58,392,25);text("+5",W/2-18,393,42,"#e8c5ff","left",950);
-      text("SIEGESBONUS",W/2,446,15,"#799c91","center",850);
-      button({x:430,y:535,w:420,h:82},"WEITERE MISSION","#289b68",true,"Fortschritt wurde gespeichert");
-      button({x:480,y:650,w:320,h:62},"HAUPTMENÜ","#275a73",true);
+      text("VICTORY BONUS",W/2,446,15,"#799c91","center",850);
+      button({x:430,y:535,w:420,h:82},"NEXT MISSION","#289b68",true,"Progress saved");
+      button({x:480,y:650,w:320,h:62},"MAIN MENU","#275a73",true);
     }
 
     function handlePointerDown(x, y, buttonId = 0) {
@@ -1544,7 +1545,7 @@
       if (gameState === "MENU") {
         if (insideRect(x,y,{x:430,y:500,w:420,h:78})){const firstOpen=MISSIONS.findIndex((_,i)=>!completedMissions.includes(i)&&isMissionUnlocked(i));missionPage=firstOpen<0?Math.ceil(MISSIONS.length/6)-1:Math.floor(firstOpen/6);gameState = "MAPSELECT";}
         else if(insideRect(x,y,{x:480,y:602,w:320,h:68})){shopCategory="towers";shopPage=0;gameState="SHOP";}
-        else if(insideRect(x,y,{x:820,y:20,w:180,h:46})){rewardMessage="Eine vollständig angesehene Werbung bringt 5 Gems.";rewardMessageColor="#8faab7";gameState="REWARDS";}
+        else if(insideRect(x,y,{x:820,y:20,w:180,h:46})){rewardMessage="Watch one full ad to earn 5 Gems.";rewardMessageColor="#8faab7";gameState="REWARDS";}
       } else if(gameState==="MAPSELECT"){
         if(insideRect(x,y,{x:25,y:20,w:180,h:50})){gameState="MENU";return;}
         const pages=Math.ceil(MISSIONS.length/6);
@@ -1560,19 +1561,19 @@
           if(y>720&&x>420&&x<540&&shopPage>0){shopPage--;return;}
           if(y>720&&x>750&&x<860&&shopPage<pages-1){shopPage++;return;}
           premium.slice(shopPage*4,shopPage*4+4).forEach((tower,i)=>{if(insideRect(x,y,shopCard(i))&&!unlockedTowers.includes(tower.id)){
-            if(gems>=tower.unlock){gems-=tower.unlock;unlockedTowers.push(tower.id);saveProgress();burst(mouse.x,mouse.y,tower.color,28,130);toast={text:`${tower.name} freigeschaltet!`,time:2.2,color:tower.accent};}
-            else toast={text:`Dir fehlen ${tower.unlock-gems} Gems`,time:1.7,color:"#ff8ca0"};
+            if(gems>=tower.unlock){gems-=tower.unlock;unlockedTowers.push(tower.id);saveProgress();burst(mouse.x,mouse.y,tower.color,28,130);toast={text:`${tower.name} unlocked!`,time:2.2,color:tower.accent};}
+            else toast={text:`You need ${tower.unlock-gems} more Gems`,time:1.7,color:"#ff8ca0"};
           }});
         }else{
           if(insideRect(x,y,featureCardRect(0))&&!extraSlotUnlocked){
-            if(gems>=SLOT_4_COST){gems-=SLOT_4_COST;extraSlotUnlocked=true;saveProgress();toast={text:"4. Loadout-Slot freigeschaltet!",time:2.2,color:"#8fffb6"};}
-            else toast={text:`Dir fehlen ${SLOT_4_COST-gems} Gems`,time:1.7,color:"#ff8ca0"};
+            if(gems>=SLOT_4_COST){gems-=SLOT_4_COST;extraSlotUnlocked=true;saveProgress();toast={text:"4th loadout slot unlocked!",time:2.2,color:"#8fffb6"};}
+            else toast={text:`You need ${SLOT_4_COST-gems} more Gems`,time:1.7,color:"#ff8ca0"};
             return;
           }
           if(insideRect(x,y,featureCardRect(1))&&!fifthSlotUnlocked){
-            if(!extraSlotUnlocked){toast={text:"Schalte zuerst Slot 4 frei",time:1.7,color:"#ffca5d"};return;}
-            if(gems>=SLOT_5_COST){gems-=SLOT_5_COST;fifthSlotUnlocked=true;saveProgress();toast={text:"5. Loadout-Slot freigeschaltet!",time:2.2,color:"#8fffb6"};}
-            else toast={text:`Dir fehlen ${SLOT_5_COST-gems} Gems`,time:1.7,color:"#ff8ca0"};
+            if(!extraSlotUnlocked){toast={text:"Unlock slot 4 first",time:1.7,color:"#ffca5d"};return;}
+            if(gems>=SLOT_5_COST){gems-=SLOT_5_COST;fifthSlotUnlocked=true;saveProgress();toast={text:"5th loadout slot unlocked!",time:2.2,color:"#8fffb6"};}
+            else toast={text:`You need ${SLOT_5_COST-gems} more Gems`,time:1.7,color:"#ff8ca0"};
           }
         }
       } else if(gameState==="REWARDS"){
@@ -1588,7 +1589,7 @@
         if(y>720&&x>750&&x<860&&freeTowerPage<pages-1){freeTowerPage++;return;}
         locked.slice(freeTowerPage*4,freeTowerPage*4+4).forEach((tower,i)=>{if(insideRect(x,y,shopCard(i))){
           unlockedTowers.push(tower.id);freeTowerAdProgress=0;saveProgress();burst(mouse.x,mouse.y,tower.color,32,150);
-          toast={text:`${tower.name} kostenlos freigeschaltet!`,time:2.4,color:tower.accent};shopCategory="towers";shopPage=0;gameState="SHOP";
+          toast={text:`${tower.name} unlocked for free!`,time:2.4,color:tower.accent};shopCategory="towers";shopPage=0;gameState="SHOP";
         }});
       } else if (gameState === "LOADOUT") {
         if (insideRect(x,y,{x:25,y:20,w:145,h:50})) { gameState = "MAPSELECT"; selectedLoadout = []; return; }
@@ -1601,19 +1602,19 @@
             const id=pageTowers[i].id;
             if (selectedLoadout.includes(id)) selectedLoadout=selectedLoadout.filter(v=>v!==id);
             else if (selectedLoadout.length<loadoutSlots()) selectedLoadout.push(id);
-            else toast={text:`Es sind bereits ${loadoutSlots()} Türme gewählt`,time:1.5,color:"#ffca5d"};
+            else toast={text:`You already selected ${loadoutSlots()} towers`,time:1.5,color:"#ffca5d"};
             return;
           }
         }
         if (selectedLoadout.length===loadoutSlots() && insideRect(x,y,{x:430,y:670,w:420,h:82})) { resetGame(); crazyGameEvent("gameplayStart"); gameState="PLAYING"; }
       } else if (gameState === "PLAYING") {
-        for(let i=0;i<4;i++)if(insideRect(x,y,speedButtonRect(i))){gameSpeed=[1,2,3,5][i];toast={text:`Spieltempo ${gameSpeed}×`,time:1,color:"#8fe8ff"};return;}
+        for(let i=0;i<4;i++)if(insideRect(x,y,speedButtonRect(i))){gameSpeed=[1,2,3,5][i];toast={text:`Game speed ${gameSpeed}×`,time:1,color:"#8fe8ff"};return;}
         if(selectedPlacedTower&&insideRect(x,y,upgradeButtonRect())){
           const cost=upgradeCost(selectedPlacedTower);
           if(selectedPlacedTower.level>=4)return;
-          if(gold<cost){toast={text:"Nicht genug Gold für das Upgrade",time:1.5,color:"#ff7180"};return;}
+          if(gold<cost){toast={text:"Not enough Gold for this upgrade",time:1.5,color:"#ff7180"};return;}
           gold-=cost;selectedPlacedTower.level++;applyLevelStats(selectedPlacedTower);
-          burst(selectedPlacedTower.x,selectedPlacedTower.y,selectedPlacedTower.type.color,26,125);toast={text:`Upgrade auf Level ${selectedPlacedTower.level}!`,time:1.5,color:selectedPlacedTower.type.accent};return;
+          burst(selectedPlacedTower.x,selectedPlacedTower.y,selectedPlacedTower.type.color,26,125);toast={text:`Upgraded to level ${selectedPlacedTower.level}!`,time:1.5,color:selectedPlacedTower.type.accent};return;
         }
         for (let i=0;i<selectedLoadout.length;i++) {
           if (insideRect(x,y,hotbarRect(i))) {
@@ -1633,14 +1634,14 @@
           const price=currentTowerCost(type);
           const limit=placementLimit();
           if((placedCounts[type.id]||0)>=limit){toast={text:`Maximum: ${limit}× ${type.short}`,time:1.7,color:"#ffae72"};return;}
-          if (gold<price) { toast={text:"Nicht genug Gold",time:1.4,color:"#ff6d76"}; return; }
-          if (!isValidPlacement(x,y)) { toast={text:"Hier kann kein Turm stehen",time:1.4,color:"#ff6d76"}; return; }
+          if (gold<price) { toast={text:"Not enough Gold",time:1.4,color:"#ff6d76"}; return; }
+          if (!isValidPlacement(x,y)) { toast={text:"A tower cannot be placed here",time:1.4,color:"#ff6d76"}; return; }
           gold-=price;
           placedCounts[type.id]=(placedCounts[type.id]||0)+1;
           const built={x,y,type,level:1,purchaseCost:price,damage:type.damage,range:type.range,rate:type.rate,cooldown:.15,target:null,angle:-Math.PI/2,orbit:Math.random()*TAU,combatX:x,combatY:y};
           applyLevelStats(built);towers.push(built);
           burst(x,y,type.color,14,80);
-          toast={text:`${type.short} platziert`,time:1.1,color:type.accent};
+          toast={text:`${type.short} placed`,time:1.1,color:type.accent};
         } else if(y<FIELD_H){selectedPlacedTower=null;selectedVehicle=null;}
       } else if (gameState === "GAMEOVER") {
         if (insideRect(x,y,{x:430,y:560,w:420,h:88})) {
@@ -1664,7 +1665,7 @@
     window.addEventListener("keydown", event => {
       if (event.key === "Escape") {selectedTowerType=null;selectedPlacedTower=null;selectedVehicle=null;}
       if (gameState === "PLAYING" && ["1","2","3","4","5"].includes(event.key)) selectedTowerType=selectedLoadout[Number(event.key)-1] || null;
-      if(gameState==="PLAYING"&&event.code==="Space"){event.preventDefault();const speeds=[1,2,3,5],index=speeds.indexOf(gameSpeed);gameSpeed=speeds[(index+1)%speeds.length];toast={text:`Spieltempo ${gameSpeed}×`,time:1,color:"#8fe8ff"};}
+      if(gameState==="PLAYING"&&event.code==="Space"){event.preventDefault();const speeds=[1,2,3,5],index=speeds.indexOf(gameSpeed);gameSpeed=speeds[(index+1)%speeds.length];toast={text:`Game speed ${gameSpeed}×`,time:1,color:"#8fe8ff"};}
     });
 
     function frame(now) {

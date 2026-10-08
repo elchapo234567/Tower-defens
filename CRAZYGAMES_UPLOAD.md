@@ -1,44 +1,44 @@
-# CrazyGames-Veröffentlichung
+# CrazyGames Release Guide
 
-## Fertiger Upload
+## Ready-to-upload build
 
-Die Datei `release/mega-tower-defense-crazygames.zip` ist das fertige HTML5-Spielpaket. `index.html` liegt direkt im Stamm des ZIP-Archivs. Das Spiel lädt das offizielle CrazyGames HTML5 SDK v3 und verwendet ausschließlich dessen Rewarded-Ad-Schnittstelle.
+The file `release/mega-tower-defense-crazygames.zip` is the finished HTML5 game package. `index.html` is located directly at the root of the ZIP archive. The game loads the official CrazyGames HTML5 SDK v3 and uses only its Rewarded Ad interface.
 
-## Im CrazyGames-Portal
+## CrazyGames Portal
 
-1. Auf [developer.crazygames.com](https://developer.crazygames.com/) anmelden und ein neues Spiel anlegen.
-2. Als Plattform beziehungsweise Engine **HTML5** auswählen.
-3. `release/mega-tower-defense-crazygames.zip` als Spiel-Build hochladen.
-4. Titel, Beschreibung, Steuerung, Kategorien sowie die im Portal verlangten Cover- und Vorschaubilder ergänzen.
-5. Den privaten Preview-/Sandbox-Link öffnen und diese Abläufe prüfen:
-   - **GET GEMS**: eine vollständig beendete Werbung vergibt genau 5 Gems.
-   - Abgebrochene oder fehlgeschlagene Werbung vergibt nichts.
-   - **Shop → Gratis-Turm**: jede beendete Werbung erhöht den Zähler genau einmal; bei 5/5 kann ein noch gesperrter Turm gewählt werden.
-   - Mission starten, pausieren, verlieren und gewinnen.
-   - Seite neu laden und prüfen, ob Fortschritt erhalten bleibt.
-6. Nach dem Preview-Test den Build im Portal zur Prüfung einreichen.
+1. Sign in at [developer.crazygames.com](https://developer.crazygames.com/) and create a new game.
+2. Select **HTML5** as the platform or engine.
+3. Upload `release/mega-tower-defense-crazygames.zip` as the game build.
+4. Add the title, description, controls, categories, cover image, and preview images requested by the portal.
+5. Open the private Preview/Sandbox link and verify these flows:
+   - **GET GEMS**: one fully completed ad awards exactly 5 Gems.
+   - Cancelled or failed ads award nothing.
+   - **Shop → Free Tower**: each completed ad increases the counter exactly once; at 5/5 the player can choose one locked tower.
+   - Start, pause, lose, and win a mission.
+   - Reload the page and confirm that progress is retained.
+6. Submit the build for review after completing the preview test.
 
-Rewarded Ads funktionieren absichtlich nur innerhalb der CrazyGames-Umgebung. Auf GitHub Pages oder beim direkten lokalen Öffnen bleibt die Werbeschaltfläche deaktiviert. Für Tests echter Anzeigen immer die CrazyGames-Vorschau verwenden.
+Rewarded Ads intentionally work only inside the CrazyGames environment. The ad buttons remain disabled on GitHub Pages and when the game is opened directly on a local machine. Always use the CrazyGames preview to test real ads.
 
-## Angaben für die Spielseite
+## Store-page information
 
-**Steuerung**
+**Controls**
 
-- Linksklick: Menüs, Türme platzieren und Upgrades kaufen
-- Rechtsklick oder Escape: Platzierung abbrechen
-- Tasten 1–5: Turm aus dem Arsenal wählen
-- Leertaste: Spieltempo wechseln
+- Left click: use menus, place towers, and buy upgrades
+- Right click or Escape: cancel tower placement
+- Number keys 1–5: select a tower from the arsenal
+- Spacebar: change the game speed
 
-**Fortschritt**
+**Progress**
 
-Gems, Missionen, Türme, Slots und der Gratis-Turm-Werbezähler werden im Browser gespeichert. Ein neuer Spieler beginnt mit 0 Gems, 0 abgeschlossenen Missionen, 0/5 Gratis-Turm-Werbungen und den fünf Starttürmen.
+Gems, missions, towers, loadout slots, and Free Tower ad progress are stored in the browser. A new player starts with 0 Gems, 0 completed missions, 0/5 Free Tower ads, and the five starter towers.
 
-## Technische Werberegeln
+## Technical ad rules
 
-- Eine Anzeige startet nur nach einem bewussten Klick des Spielers.
-- Eine Belohnung wird nur im `adFinished`-Callback vergeben.
-- `adError` und abgebrochene Anzeigen vergeben keine Belohnung und verbrauchen keinen Fortschritt.
-- Während eine Anzeige läuft, sind weitere Eingaben gesperrt.
-- Das Spiel meldet Laden, Spielstart und Spielende über das CrazyGames SDK.
+- An ad starts only after an intentional player click.
+- A reward is granted only inside the `adFinished` callback.
+- `adError` and cancelled ads do not grant rewards or consume progress.
+- Additional input is blocked while an ad is running.
+- Loading, gameplay start, and gameplay stop events are reported through the CrazyGames SDK.
 
-Offizielle Referenz: [CrazyGames HTML5 SDK – Advertisement](https://docs.crazygames.com/sdk/html5/advertisement/)
+Official reference: [CrazyGames HTML5 SDK – Advertisement](https://docs.crazygames.com/sdk/html5/advertisement/)
