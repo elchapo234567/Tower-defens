@@ -53,6 +53,7 @@
     let selectedVehicle = null;
     let selectedMap = 0;
     let selectedMission = 0;
+    let missionPage = 0;
     let loadoutPage = 0;
     let shopPage = 0;
     let towers = [];
@@ -79,6 +80,7 @@
     let bestWave = 0;
     let completedMissions = [];
     let redeemedCodes = [];
+    let extraSlotUnlocked = false;
     let codeInput = "";
     let codeMessage = "";
     let codeMessageColor = "#8faab7";
@@ -99,12 +101,24 @@
       }
     ];
     const MISSIONS = [
-      {name:"GRÜNE REKRUTEN",subtitle:"Der erste Außenposten",map:0,waves:5,difficulty:.82,startGold:400,color:"#62db86"},
-      {name:"SMARAGD-BELAGERUNG",subtitle:"Mehr Feinde, weniger Pausen",map:0,waves:8,difficulty:1,startGold:365,color:"#35c977"},
-      {name:"FROST-PATROUILLE",subtitle:"Schnelle Feinde im Eis",map:1,waves:10,difficulty:1.16,startGold:390,color:"#68ddff"},
-      {name:"FROST-NACHT",subtitle:"Eliteeinheiten im Schneesturm",map:1,waves:12,difficulty:1.34,startGold:410,color:"#9d9cff"},
-      {name:"VULKAN-STURM",subtitle:"Gepanzerte Monsterhorden",map:2,waves:15,difficulty:1.52,startGold:450,color:"#ff865f"},
-      {name:"LETZTES GEFECHT",subtitle:"Die ultimative Verteidigung",map:2,waves:20,difficulty:1.78,startGold:500,color:"#ff4e66"}
+      {name:"GRÜNE REKRUTEN",subtitle:"Der erste Außenposten",map:0,waves:5,difficulty:.82,density:1,startGold:400,bosses:1,color:"#62db86"},
+      {name:"SMARAGD-WACHT",subtitle:"Mehr Feinde, weniger Pausen",map:0,waves:8,difficulty:1,density:1.05,startGold:375,bosses:1,color:"#35c977"},
+      {name:"FROST-PATROUILLE",subtitle:"Schnelle Feinde im Eis",map:1,waves:10,difficulty:1.16,density:1.1,startGold:395,bosses:1,color:"#68ddff"},
+      {name:"FROST-NACHT",subtitle:"Eliteeinheiten im Schneesturm",map:1,waves:12,difficulty:1.34,density:1.14,startGold:415,bosses:2,color:"#9d9cff"},
+      {name:"VULKAN-STURM",subtitle:"Gepanzerte Monsterhorden",map:2,waves:15,difficulty:1.52,density:1.18,startGold:455,bosses:2,color:"#ff865f"},
+      {name:"ERSTE FRONT",subtitle:"Die Aufwärmphase endet",map:2,waves:18,difficulty:1.72,density:1.22,startGold:485,bosses:2,color:"#ff5f71"},
+      {name:"NEBELKORRIDOR",subtitle:"Phantome greifen in Gruppen an",map:0,waves:20,difficulty:1.94,density:1.26,startGold:500,bosses:3,color:"#79d0a4"},
+      {name:"STAHLREGEN",subtitle:"Schwere Rüstung auf jeder Route",map:0,waves:20,difficulty:2.16,density:1.3,startGold:515,bosses:3,color:"#9fb5c6"},
+      {name:"KRISTALLFRONT",subtitle:"Schnelle Elitewellen im Frost",map:1,waves:22,difficulty:2.4,density:1.34,startGold:530,bosses:3,color:"#6eeaff"},
+      {name:"TITANENMARSCH",subtitle:"Giganten erreichen die Front",map:1,waves:22,difficulty:2.64,density:1.38,startGold:545,bosses:4,color:"#b78cff"},
+      {name:"EISIGE BELAGERUNG",subtitle:"Kaum Zeit zwischen den Angriffen",map:1,waves:24,difficulty:2.9,density:1.42,startGold:560,bosses:4,color:"#76aaff"},
+      {name:"INFERNO-PROTOKOLL",subtitle:"Feuer, Panzerung und Bosse",map:2,waves:24,difficulty:3.18,density:1.46,startGold:575,bosses:4,color:"#ff9a55"},
+      {name:"SCHATTENOFFENSIVE",subtitle:"Elitegegner dominieren den Pfad",map:0,waves:25,difficulty:3.48,density:1.5,startGold:590,bosses:4,color:"#b28be0"},
+      {name:"OMEGA-FESTUNG",subtitle:"Nur perfekte Verteidigung genügt",map:0,waves:27,difficulty:3.8,density:1.54,startGold:605,bosses:5,color:"#f0d069"},
+      {name:"BOSS-PARADE",subtitle:"Mehrere Kommandanten pro Angriff",map:2,waves:28,difficulty:4.14,density:1.58,startGold:620,bosses:5,color:"#ff6a54"},
+      {name:"ENDLOSE DÄMMERUNG",subtitle:"Lange Schlacht ohne Erholung",map:1,waves:30,difficulty:4.5,density:1.62,startGold:635,bosses:5,color:"#807cff"},
+      {name:"WELTENBRECHER",subtitle:"Die stärksten Horden erwachen",map:2,waves:32,difficulty:4.9,density:1.68,startGold:650,bosses:5,color:"#ff4772"},
+      {name:"FINALER WIDERSTAND",subtitle:"Die ultimative Mission",map:2,waves:35,difficulty:5.35,density:1.75,startGold:675,bosses:5,color:"#ffcf4d"}
     ];
     let path = MAPS[0].path.map(p => ({...p}));
     const pathWidths = 76;
@@ -167,9 +181,9 @@
         description: "Extrem hohe Reichweite und mächtige Einzelschüsse."
       },
       {
-        id: "sun", name: "SONNEN-TURM", short: "SONNE", cost: 300, unlock: 15,
-        damage: 52, range: 175, rate: .72, color: "#ffb52e", accent: "#fff0ad",
-        description: "Eine Nova trifft alle Monster in Reichweite."
+        id: "sun", name: "SONNEN-TURM", short: "SONNE", cost: 325, unlock: 15,
+        damage: 30, range: 160, rate: .48, color: "#ffb52e", accent: "#fff0ad",
+        description: "Eine Nova trifft Gruppen, verliert aber mit Entfernung an Kraft."
       },
       {
         id: "helicopter", name: "HELIKOPTER-BASIS", short: "HELIKOPTER", cost: 325, unlock: 18,
@@ -219,13 +233,14 @@
           bestWave = Math.max(0, Math.floor(saved.bestWave||0));
           completedMissions=Array.isArray(saved.completedMissions)?saved.completedMissions.filter(n=>Number.isInteger(n)&&n>=0&&n<MISSIONS.length):[];
           redeemedCodes=Array.isArray(saved.redeemedCodes)?saved.redeemedCodes.filter(code=>typeof code==="string"):[];
+          extraSlotUnlocked=saved.extraSlotUnlocked===true;
           unlockedTowers = [...new Set(["gun", "laser", "ice", "rocket", "tesla", ...saved.unlocked])].filter(id => TOWER_TYPES.some(t => t.id === id));
         }
       } catch (_) { /* Das Spiel bleibt auch ohne verfügbaren Speicher spielbar. */ }
     }
 
     function saveProgress() {
-      try { localStorage.setItem("megaTowerDefenseProgress", JSON.stringify({ gems, bestWave, completedMissions, redeemedCodes, unlocked: unlockedTowers })); } catch (_) {}
+      try { localStorage.setItem("megaTowerDefenseProgress", JSON.stringify({ gems, bestWave, completedMissions, redeemedCodes, extraSlotUnlocked, unlocked: unlockedTowers })); } catch (_) {}
     }
 
     setMap(0);
@@ -253,6 +268,11 @@
       ctx.textAlign = align;
       ctx.textBaseline = "middle";
       ctx.fillText(value, x, y);
+    }
+
+    function fittedText(value,x,y,maxWidth,maxSize,minSize,color="#fff",align="left",weight=800){
+      let size=maxSize;do{ctx.font=`${weight} ${size}px Inter, system-ui, sans-serif`;if(ctx.measureText(value).width<=maxWidth)break;size--;}while(size>minSize);
+      text(value,x,y,size,color,align,weight);
     }
 
     function insideRect(px, py, r) {
@@ -360,20 +380,24 @@
       drawBackdrop(); drawMotes(0);
       text("MISSIONSZENTRALE", W / 2, 58, 42, "#eafaff", "center", 950);
       text("Schließe eine Mission ab, um die nächste freizuschalten", W / 2, 105, 18, "#83aabd", "center", 650);
-      MISSIONS.forEach((mission, i) => {
-        const map=MAPS[mission.map],r=missionCard(i),unlocked=isMissionUnlocked(i),complete=completedMissions.includes(i);
+      const pageCount=Math.ceil(MISSIONS.length/6);missionPage=Math.max(0,Math.min(missionPage,pageCount-1));
+      MISSIONS.slice(missionPage*6,missionPage*6+6).forEach((mission, localIndex) => {
+        const i=missionPage*6+localIndex,map=MAPS[mission.map],r=missionCard(localIndex),unlocked=isMissionUnlocked(i),complete=completedMissions.includes(i);
         const hover=unlocked&&insideRect(mouse.x,mouse.y,r);
         ctx.save();ctx.shadowColor=hover?mission.color:"rgba(0,0,0,.5)";ctx.shadowBlur=hover?22:7;
         fillRounded(r.x,r.y-(hover?4:0),r.w,r.h,18,unlocked?"#102635":"#0a1720",complete?"#ffd45a":hover?mission.color:"rgba(125,203,232,.25)",complete?3:hover?4:2);ctx.restore();
         const preview={x:r.x+15,y:r.y+15,w:130,h:r.h-30};const pg=ctx.createLinearGradient(0,preview.y,0,preview.y+preview.h);pg.addColorStop(0,map.ground[0]);pg.addColorStop(1,map.ground[1]);fillRounded(preview.x,preview.y,preview.w,preview.h,12,pg);
         drawMiniPath(map.path,preview,map.road);
         if(!unlocked){ctx.fillStyle="rgba(2,7,11,.7)";ctx.fillRect(preview.x,preview.y,preview.w,preview.h);text("🔒",preview.x+preview.w/2,preview.y+preview.h/2,30,"#82929a","center",800);}
-        text(mission.name,r.x+165,r.y+37,19,unlocked?mission.color:"#52636c","left",950);
-        text(mission.subtitle,r.x+165,r.y+69,14,unlocked?"#b2c8d1":"#52636c","left",650);
+        text(`MISSION ${String(i+1).padStart(2,"0")}`,r.x+165,r.y+20,11,unlocked?"#668794":"#3c4c53","left",900);
+        fittedText(mission.name,r.x+165,r.y+43,180,18,12,unlocked?mission.color:"#52636c","left",950);
+        fittedText(mission.subtitle,r.x+165,r.y+69,185,14,10,unlocked?"#b2c8d1":"#52636c","left",650);
         text(`${mission.waves} WELLEN`,r.x+165,r.y+105,16,unlocked?"#fff":"#52636c","left",900);
-        const difficulty=i<2?"LEICHT":i<4?"MITTEL":"SCHWER";text(difficulty,r.x+165,r.y+137,14,mission.color,"left",850);
+        const difficulty=mission.difficulty<1.2?"LEICHT":mission.difficulty<2?"MITTEL":mission.difficulty<3?"SCHWER":mission.difficulty<4?"BRUTAL":"ALBTRAUM";text(difficulty,r.x+165,r.y+137,14,mission.color,"left",850);
+        text(`${mission.bosses}× BOSS-SPITZE`,r.x+165,r.y+160,12,unlocked?"#b08d91":"#46565e","left",750);
         text(complete?"ABGESCHLOSSEN ✓":unlocked?"MISSION STARTEN":"GESPERRT",r.x+165,r.y+184,14,complete?"#ffd45a":unlocked?"#fff":"#52636c","left",900);
       });
+      text("‹",485,742,40,missionPage>0?"#fff":"#354b55","center",950);text(`MISSIONSSEITE ${missionPage+1}/${pageCount}`,W/2,742,14,"#6f8e9b","center",850);text("›",795,742,40,missionPage<pageCount-1?"#fff":"#354b55","center",950);
       text("‹ HAUPTMENÜ",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:180,h:50})?"#fff":"#83a3b3","left",800);
     }
 
@@ -410,14 +434,21 @@
         if(unlocked) text("FREIGESCHALTET ✓",r.x+300,r.y+172,17,"#70e49a","center",900);
         else { drawGem(r.x+243,r.y+171,14); text(`${tower.unlock} GEMS`,r.x+266,r.y+172,18,affordable?"#e8c7ff":"#8b738f","left",950); }
       });
+      const slotRect=slotUnlockRect(),slotHover=insideRect(mouse.x,mouse.y,slotRect),slotCost=35;
+      fillRounded(slotRect.x,slotRect.y,slotRect.w,slotRect.h,14,extraSlotUnlocked?"#173d2b":slotHover?"#253c51":"#142936",extraSlotUnlocked?"#75e59d":slotHover?"#b88cff":"rgba(126,191,216,.3)",extraSlotUnlocked?3:2);
+      text(extraSlotUnlocked?"4. LOADOUT-SLOT FREIGESCHALTET ✓":"4. LOADOUT-SLOT",slotRect.x+24,slotRect.y+slotRect.h/2,17,extraSlotUnlocked?"#89f3ad":"#e8d5ff","left",950);
+      if(!extraSlotUnlocked){drawGem(slotRect.x+slotRect.w-105,slotRect.y+slotRect.h/2,13);text(`${slotCost} GEMS`,slotRect.x+slotRect.w-82,slotRect.y+slotRect.h/2,16,gems>=slotCost?"#f0d4ff":"#8b738f","left",900);}
       if(pageCount>1){
-        text("‹",470,733,42,shopPage>0?"#fff":"#3d5663","center",950);
-        text(`SHOP-SEITE ${shopPage+1}/${pageCount}`,W/2,733,15,"#7796a5","center",850);
-        text("›",810,733,42,shopPage<pageCount-1?"#fff":"#3d5663","center",950);
+        text("‹",470,755,38,shopPage>0?"#fff":"#3d5663","center",950);
+        text(`SHOP-SEITE ${shopPage+1}/${pageCount}`,W/2,755,14,"#7796a5","center",850);
+        text("›",810,755,38,shopPage<pageCount-1?"#fff":"#3d5663","center",950);
       }
       text("‹ HAUPTMENÜ",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:180,h:50})?"#fff":"#83a3b3","left",800);
       drawToastOverlay();
     }
+
+    function slotUnlockRect(){return{x:350,y:647,w:580,h:58};}
+    function loadoutSlots(){return extraSlotUnlocked?4:3;}
 
     function drawCodes(){
       drawBackdrop();drawMotes(0);
@@ -455,7 +486,8 @@
       drawBackdrop();
       drawMotes(0);
       text("WÄHLE DEIN ARSENAL", W / 2, 73, 45, "#eafaff", "center", 950);
-      text(`Genau 3 Türme auswählen  •  ${selectedLoadout.length}/3 bereit`, W / 2, 125, 22, selectedLoadout.length === 3 ? "#ffd65c" : "#83b7cc", "center", 700);
+      const slots=loadoutSlots();
+      text(`Genau ${slots} Türme auswählen  •  ${selectedLoadout.length}/${slots} bereit`, W / 2, 125, 22, selectedLoadout.length === slots ? "#ffd65c" : "#83b7cc", "center", 700);
 
       const available = TOWER_TYPES.filter(t=>unlockedTowers.includes(t.id));
       const pageCount = Math.ceil(available.length/5);
@@ -492,10 +524,10 @@
         text(`SEITE ${loadoutPage+1}/${pageCount}`,W/2,642,14,"#678593","center",800);
       }
 
-      if (selectedLoadout.length === 3) {
+      if (selectedLoadout.length === slots) {
         button({ x: 430, y: 670, w: 420, h: 82 }, "KAMPF STARTEN", "#2aa866", true, `Startgold: ${MISSIONS[selectedMission].startGold}  •  ${MISSIONS[selectedMission].waves} Wellen`);
       } else {
-        text("Wähle noch " + (3 - selectedLoadout.length) + (selectedLoadout.length === 2 ? " Turm" : " Türme"), W / 2, 711, 22, "#7796a6", "center", 800);
+        text("Wähle noch " + (slots - selectedLoadout.length) + (slots-selectedLoadout.length===1 ? " Turm" : " Türme"), W / 2, 711, 22, "#7796a6", "center", 800);
       }
       text(`MISSION: ${MISSIONS[selectedMission].name}`,W-45,45,16,MISSIONS[selectedMission].color,"right",900);
       text("‹ MISSIONEN", 45, 45, 18, insideRect(mouse.x, mouse.y, { x: 25, y: 20, w: 165, h: 50 }) ? "#fff" : "#83a3b3", "left", 800);
@@ -710,7 +742,7 @@
     function upgradeCost(tower){return Math.round(tower.purchaseCost*(.48+tower.level*.27));}
 
     function hotbarRect(i) {
-      return { x: 55 + i * 285, y: 698, w: 260, h: 84 };
+      return selectedLoadout.length===4?{x:18+i*224,y:698,w:210,h:84}:{ x: 55 + i * 285, y: 698, w: 260, h: 84 };
     }
 
     function drawTowerModel(tower, x, y, scale = 1, rotation = 0, level = 1) {
@@ -949,19 +981,23 @@
       waveActive = true;
       waveQueue = [];
       const mission=MISSIONS[selectedMission];
-      const normalCount = 6 + wave * 2+Math.max(0,Math.floor((mission.difficulty-1)*5));
-      const fastCount = 1 + Math.max(0, wave - 1) * 2;
+      const normalCount = Math.ceil((6 + wave * 2+Math.max(0,Math.floor((mission.difficulty-1)*4)))*mission.density);
+      const fastCount = Math.ceil((1 + Math.max(0, wave - 1) * 2)*mission.density);
       for (let i = 0; i < normalCount; i++) waveQueue.push("normal");
       for (let i = 0; i < fastCount; i++) waveQueue.splice(Math.min(waveQueue.length, 2 + i * 3), 0, "fast");
-      if(wave>=2) for(let i=0;i<Math.ceil(wave/2);i++) waveQueue.splice(Math.min(waveQueue.length,4+i*5),0,"armored");
-      if(wave>=3) for(let i=0;i<wave;i++) waveQueue.splice(Math.min(waveQueue.length,3+i*4),0,"phantom");
-      if(wave>=4) for(let i=0;i<Math.floor(wave/3);i++) waveQueue.push("brute");
-      if(wave>=2) for(let i=0;i<wave+1;i++) waveQueue.splice(Math.min(waveQueue.length,1+i*3),0,"swarm");
-      if (wave % 5 === 0) waveQueue.push("boss");
+      if(wave>=2) for(let i=0;i<Math.ceil(wave/2*mission.density);i++) waveQueue.splice(Math.min(waveQueue.length,4+i*5),0,"armored");
+      if(wave>=3) for(let i=0;i<Math.ceil(wave*mission.density);i++) waveQueue.splice(Math.min(waveQueue.length,3+i*4),0,"phantom");
+      if(wave>=4) for(let i=0;i<Math.ceil(wave/3*mission.density);i++) waveQueue.push("brute");
+      if(wave>=2) for(let i=0;i<Math.ceil((wave+1)*mission.density);i++) waveQueue.splice(Math.min(waveQueue.length,1+i*3),0,"swarm");
+      const maxWaveUnits=Math.min(260,Math.floor(90+selectedMission*7+wave*1.5));
+      if(waveQueue.length>maxWaveUnits){const original=[...waveQueue];waveQueue=Array.from({length:maxWaveUnits},(_,i)=>original[Math.floor(i*original.length/maxWaveUnits)]);}
+      const bossWave=wave%5===0||wave===mission.waves;
+      const bossCount=bossWave?Math.min(5,mission.bosses+Math.floor(Math.max(0,wave-15)/15)):0;
+      for(let i=0;i<bossCount;i++)waveQueue.push("boss");
       for(const tower of towers)if(tower.type.id==="military")deployVehicle(tower,true);
       spawnTimer = .2;
       spawnedThisWave = 0;
-      toast = { text: wave % 5 === 0 ? `WELLE ${wave} — BOSS-ALARM!` : `WELLE ${wave}`, time: 2.4, color: wave % 5 === 0 ? "#ff6670" : "#8fe8ff" };
+      toast = { text: bossCount ? `WELLE ${wave} — ${bossCount}× BOSS-ALARM!` : `WELLE ${wave}`, time: 2.4, color: bossCount ? "#ff6670" : "#8fe8ff" };
     }
 
     function spawnEnemy(kind) {
@@ -969,7 +1005,8 @@
       const mission=MISSIONS[selectedMission];
       const hpScale = Math.pow(1.17, wave - 1)*mission.difficulty;
       const bossScale = kind === "boss" ? 1 + Math.floor(wave / 5 - 1) * .3 : 1;
-      const elite=wave>=4&&spawnedThisWave>0&&spawnedThisWave%7===0;
+      const eliteInterval=Math.max(3,7-Math.floor(selectedMission/4));
+      const elite=wave>=4&&spawnedThisWave>0&&spawnedThisWave%eliteInterval===0;
       spawnedThisWave++;
       const maxHp = Math.round(base.hp * hpScale * bossScale*(elite?1.7:1));
       const p = pointAtDistance(0);
@@ -990,7 +1027,7 @@
         spawnTimer -= dt;
         if (spawnTimer <= 0) {
           spawnEnemy(waveQueue.shift());
-          spawnTimer = Math.max(.34, .92 - wave * .018);
+          spawnTimer = Math.max(.2, (.92 - wave * .018)/MISSIONS[selectedMission].density);
         }
       }
 
@@ -1093,7 +1130,7 @@
         if(tower.weapon==="cannon"){damageEnemy(target,tower.damage,"airplane");effects.push({type:"gun",x:ox,y:oy,tx:target.x,ty:target.y,life:.1,maxLife:.1,color:type.color});}
         else effects.push({type:tower.weapon==="missile"?"rocket":"airbomb",x:ox,y:oy,tx:target.x,ty:target.y,target,life:.5,maxLife:.5,color:type.color,damage:tower.damage,splash:tower.weapon==="cluster"?105:72,burn:tower.weapon==="firebomb"});
       } else if(type.id==="sun"){
-        for(const enemy of enemies)if(!enemy.dead&&Math.hypot(enemy.x-ox,enemy.y-oy)<=tower.range)damageEnemy(enemy,tower.damage,"sun");
+        for(const enemy of enemies){const distance=Math.hypot(enemy.x-ox,enemy.y-oy);if(!enemy.dead&&distance<=tower.range)damageEnemy(enemy,tower.damage*(.42+.58*(1-distance/tower.range)),"sun");}
         effects.push({type:"nova",x:ox,y:oy,life:.45,maxLife:.45,color:type.color});
       } else {
         damageEnemy(target, tower.damage, type.id);
@@ -1368,17 +1405,21 @@
     function handlePointerDown(x, y, buttonId = 0) {
       if (buttonId === 2) { selectedTowerType = null; selectedPlacedTower=null;selectedVehicle=null; return; }
       if (gameState === "MENU") {
-        if (insideRect(x,y,{x:430,y:500,w:420,h:78})) gameState = "MAPSELECT";
+        if (insideRect(x,y,{x:430,y:500,w:420,h:78})){const firstOpen=MISSIONS.findIndex((_,i)=>!completedMissions.includes(i)&&isMissionUnlocked(i));missionPage=firstOpen<0?Math.ceil(MISSIONS.length/6)-1:Math.floor(firstOpen/6);gameState = "MAPSELECT";}
         else if(insideRect(x,y,{x:310,y:602,w:300,h:68}))gameState="SHOP";
         else if(insideRect(x,y,{x:670,y:602,w:300,h:68})){gameState="CODES";codeInput="";codeMessage="";}
       } else if(gameState==="MAPSELECT"){
         if(insideRect(x,y,{x:25,y:20,w:180,h:50})){gameState="MENU";return;}
-        MISSIONS.forEach((mission,i)=>{if(isMissionUnlocked(i)&&insideRect(x,y,missionCard(i))){selectedMission=i;setMap(mission.map);selectedLoadout=[];loadoutPage=0;gameState="LOADOUT";}});
+        const pages=Math.ceil(MISSIONS.length/6);
+        if(y>710&&x>430&&x<535&&missionPage>0){missionPage--;return;}
+        if(y>710&&x>745&&x<850&&missionPage<pages-1){missionPage++;return;}
+        MISSIONS.slice(missionPage*6,missionPage*6+6).forEach((mission,localIndex)=>{const i=missionPage*6+localIndex;if(isMissionUnlocked(i)&&insideRect(x,y,missionCard(localIndex))){selectedMission=i;setMap(mission.map);selectedLoadout=[];loadoutPage=0;gameState="LOADOUT";}});
       } else if(gameState==="SHOP"){
         if(insideRect(x,y,{x:25,y:20,w:180,h:50})){gameState="MENU";return;}
         const premium=TOWER_TYPES.filter(t=>t.unlock),pages=Math.ceil(premium.length/4);
-        if(y>700&&x>420&&x<540&&shopPage>0){shopPage--;return;}
-        if(y>700&&x>750&&x<860&&shopPage<pages-1){shopPage++;return;}
+        if(insideRect(x,y,slotUnlockRect())&&!extraSlotUnlocked){const cost=35;if(gems>=cost){gems-=cost;extraSlotUnlocked=true;saveProgress();toast={text:"4. Loadout-Slot freigeschaltet!",time:2.2,color:"#8fffb6"};}else toast={text:`Dir fehlen ${cost-gems} Gems`,time:1.7,color:"#ff8ca0"};return;}
+        if(y>720&&x>420&&x<540&&shopPage>0){shopPage--;return;}
+        if(y>720&&x>750&&x<860&&shopPage<pages-1){shopPage++;return;}
         premium.slice(shopPage*4,shopPage*4+4).forEach((tower,i)=>{if(insideRect(x,y,shopCard(i))&&!unlockedTowers.includes(tower.id)){
           if(gems>=tower.unlock){gems-=tower.unlock;unlockedTowers.push(tower.id);saveProgress();burst(mouse.x,mouse.y,tower.color,28,130);toast={text:`${tower.name} freigeschaltet!`,time:2.2,color:tower.accent};}
           else toast={text:`Dir fehlen ${tower.unlock-gems} Gems`,time:1.7,color:"#ff8ca0"};
@@ -1396,12 +1437,12 @@
           if (insideRect(x,y,loadoutCard(i))) {
             const id=pageTowers[i].id;
             if (selectedLoadout.includes(id)) selectedLoadout=selectedLoadout.filter(v=>v!==id);
-            else if (selectedLoadout.length<3) selectedLoadout.push(id);
-            else toast={text:"Es sind bereits 3 Türme gewählt",time:1.5,color:"#ffca5d"};
+            else if (selectedLoadout.length<loadoutSlots()) selectedLoadout.push(id);
+            else toast={text:`Es sind bereits ${loadoutSlots()} Türme gewählt`,time:1.5,color:"#ffca5d"};
             return;
           }
         }
-        if (selectedLoadout.length===3 && insideRect(x,y,{x:430,y:670,w:420,h:82})) { resetGame(); gameState="PLAYING"; }
+        if (selectedLoadout.length===loadoutSlots() && insideRect(x,y,{x:430,y:670,w:420,h:82})) { resetGame(); gameState="PLAYING"; }
       } else if (gameState === "PLAYING") {
         for(let i=0;i<4;i++)if(insideRect(x,y,speedButtonRect(i))){gameSpeed=[1,2,3,5][i];toast={text:`Spieltempo ${gameSpeed}×`,time:1,color:"#8fe8ff"};return;}
         if(selectedPlacedTower&&insideRect(x,y,upgradeButtonRect())){
@@ -1441,7 +1482,7 @@
           selectedLoadout=[]; selectedTowerType=null; selectedPlacedTower=null;selectedVehicle=null;towers=[];vehicles=[]; enemies=[]; effects=[]; particles=[]; hp=20; gold=350; wave=0; gameState="MENU";
         }
       } else if(gameState==="VICTORY"){
-        if(insideRect(x,y,{x:430,y:535,w:420,h:82})){selectedLoadout=[];gameState="MAPSELECT";}
+        if(insideRect(x,y,{x:430,y:535,w:420,h:82})){selectedLoadout=[];missionPage=Math.floor(Math.min(MISSIONS.length-1,selectedMission+1)/6);gameState="MAPSELECT";}
         else if(insideRect(x,y,{x:480,y:650,w:320,h:62})){selectedLoadout=[];gameState="MENU";}
       }
     }
@@ -1464,7 +1505,7 @@
         return;
       }
       if (event.key === "Escape") {selectedTowerType=null;selectedPlacedTower=null;selectedVehicle=null;}
-      if (gameState === "PLAYING" && ["1","2","3"].includes(event.key)) selectedTowerType=selectedLoadout[Number(event.key)-1] || null;
+      if (gameState === "PLAYING" && ["1","2","3","4"].includes(event.key)) selectedTowerType=selectedLoadout[Number(event.key)-1] || null;
       if(gameState==="PLAYING"&&event.code==="Space"){event.preventDefault();const speeds=[1,2,3,5],index=speeds.indexOf(gameSpeed);gameSpeed=speeds[(index+1)%speeds.length];toast={text:`Spieltempo ${gameSpeed}×`,time:1,color:"#8fe8ff"};}
     });
 
