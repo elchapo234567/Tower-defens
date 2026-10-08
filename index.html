@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#07111d">
+  <title>Mega Tower Defense</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+    body {
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 50% 25%, #17334d 0, #0b1d2d 34%, #040a12 75%),
+        #040a12;
+      color: #fff;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      user-select: none;
+      touch-action: none;
+    }
+    #game {
+      display: block;
+      width: min(100vw, calc(100vh * 1.6));
+      height: min(100vh, calc(100vw / 1.6));
+      max-width: 1280px;
+      max-height: 800px;
+      border: 1px solid rgba(128, 219, 255, .36);
+      border-radius: 14px;
+      background: #0b1924;
+      box-shadow: 0 24px 80px rgba(0,0,0,.75), 0 0 50px rgba(41,174,255,.12);
+      cursor: default;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game" width="1280" height="800" aria-label="Mega Tower Defense Spiel"></canvas>
+  <script>
+    "use strict";
+
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width;
+    const H = canvas.height;
+    const FIELD_H = 650;
+    const TAU = Math.PI * 2;
+
+    let gameState = "MENU";
+    let mouse = { x: -1000, y: -1000, inside: false };
+    let selectedLoadout = [];
+    let selectedTowerType = null;
+    let selectedPlacedTower = null;
+    let selectedVehicle = null;
+    let selectedMap = 0;
+    let selectedMission = 0;
+    let loadoutPage = 0;
+    let shopPage = 0;
+    let towers = [];
+    let placedCounts = {};
+    let enemies = [];
+    let vehicles = [];
+    let effects = [];
+    let particles = [];
+    let ambientMotes = [];
+    let hp = 20;
+    let gold = 350;
+    let wave = 0;
+    let waveActive = false;
+    let waveQueue = [];
+    let spawnTimer = 0;
+    let spawnedThisWave = 0;
+    let nextWaveCountdown = 0;
+    let gameSpeed = 1;
+    let elapsed = 0;
+    let lastTime = performance.now();
+    let shake = 0;
+    let toast = { text: "", time: 0, color: "#fff" };
+    let gems = 0;
+    let bestWave = 0;
+    let completedMissions = [];
+    let unlockedTowers = ["gun", "laser", "ice", "rocket", "tesla"];
+
+    const MAPS = [
+      {
+        name: "SMARAGD-PASS", subtitle: "Ausgewogen und weitläufig", color: "#43c77a", ground: ["#244f3e", "#17382f"], road: "#756b56",
+        path: [{x:-40,y:115},{x:180,y:115},{x:180,y:305},{x:455,y:305},{x:455,y:145},{x:745,y:145},{x:745,y:485},{x:1010,y:485},{x:1010,y:260},{x:1320,y:260}]
+      },
+      {
+        name: "FROST-RISS", subtitle: "Lange eisige Serpentinen", color: "#69dfff", ground: ["#244a59", "#142f43"], road: "#7893a0",
+        path: [{x:-40,y:490},{x:180,y:490},{x:180,y:180},{x:420,y:180},{x:420,y:430},{x:650,y:430},{x:650,y:120},{x:900,y:120},{x:900,y:390},{x:1100,y:390},{x:1100,y:225},{x:1320,y:225}]
+      },
+      {
+        name: "VULKAN-KERN", subtitle: "Kurzer Pfad, höheres Startgold", color: "#ff7652", ground: ["#4b2927", "#281c24"], road: "#654f48",
+        path: [{x:-40,y:150},{x:270,y:150},{x:270,y:470},{x:560,y:470},{x:560,y:210},{x:850,y:210},{x:850,y:490},{x:1080,y:490},{x:1080,y:285},{x:1320,y:285}]
+      }
+    ];
+    const MISSIONS = [
+      {name:"GRÜNE REKRUTEN",subtitle:"Der erste Außenposten",map:0,waves:5,difficulty:.82,startGold:400,color:"#62db86"},
+      {name:"SMARAGD-BELAGERUNG",subtitle:"Mehr Feinde, weniger Pausen",map:0,waves:8,difficulty:1,startGold:365,color:"#35c977"},
+      {name:"FROST-PATROUILLE",subtitle:"Schnelle Feinde im Eis",map:1,waves:10,difficulty:1.16,startGold:390,color:"#68ddff"},
+      {name:"FROST-NACHT",subtitle:"Eliteeinheiten im Schneesturm",map:1,waves:12,difficulty:1.34,startGold:410,color:"#9d9cff"},
+      {name:"VULKAN-STURM",subtitle:"Gepanzerte Monsterhorden",map:2,waves:15,difficulty:1.52,startGold:450,color:"#ff865f"},
+      {name:"LETZTES GEFECHT",subtitle:"Die ultimative Verteidigung",map:2,waves:20,difficulty:1.78,startGold:500,color:"#ff4e66"}
+    ];
+    let path = MAPS[0].path.map(p => ({...p}));
+    const pathWidths = 76;
+    let pathSegments = [];
+    let totalPathLength = 0;
+
+    function setMap(index) {
+      selectedMap = index;
+      path = MAPS[index].path.map(p => ({...p}));
+      pathSegments = [];
+      totalPathLength = 0;
+      for (let i = 0; i < path.length - 1; i++) {
+        const dx = path[i + 1].x - path[i].x;
+        const dy = path[i + 1].y - path[i].y;
+        const length = Math.hypot(dx, dy);
+        pathSegments.push({ a: path[i], b: path[i + 1], length, start: totalPathLength, dx, dy });
+        totalPathLength += length;
+      }
+    }
+
+    const TOWER_TYPES = [
+      {
+        id: "gun", name: "MASCHINENGEWEHR", short: "MG-TURM", cost: 110,
+        damage: 14, range: 145, rate: 5.2, color: "#ffcc4d", accent: "#fff1a3",
+        description: "Hohe Feuerrate gegen einzelne Ziele."
+      },
+      {
+        id: "laser", name: "LASER-TURM", short: "LASER", cost: 165,
+        damage: 43, range: 180, rate: 1.7, color: "#ff4f9a", accent: "#ffb5dc",
+        description: "Präzise Energiestrahlen mit großer Reichweite."
+      },
+      {
+        id: "ice", name: "EIS-TURM", short: "EIS", cost: 135,
+        damage: 20, range: 155, rate: 1.25, color: "#61dfff", accent: "#c9f8ff",
+        description: "Verlangsamt getroffene Monster deutlich."
+      },
+      {
+        id: "rocket", name: "RAKETEN-TURM", short: "RAKETE", cost: 235,
+        damage: 58, range: 185, rate: 0.48, color: "#ff7043", accent: "#ffd0a8", splash: 62,
+        description: "Langsame Raketen gegen dicht stehende Gruppen."
+      },
+      {
+        id: "tesla", name: "TESLA-BLITZ-TURM", short: "TESLA", cost: 190,
+        damage: 48, range: 170, rate: 1.05, color: "#a783ff", accent: "#e4d7ff",
+        description: "Blitze springen auf weitere nahe Ziele."
+      },
+      {
+        id: "poison", name: "GIFT-TURM", short: "GIFT", cost: 155, unlock: 6,
+        damage: 12, range: 165, rate: 1.15, color: "#7ee65c", accent: "#d8ffc9",
+        description: "Gift verursacht zusätzlichen Schaden über Zeit."
+      },
+      {
+        id: "plasma", name: "PLASMA-TURM", short: "PLASMA", cost: 235, unlock: 8,
+        damage: 68, range: 195, rate: 1.35, color: "#cf62ff", accent: "#f0c5ff",
+        description: "Instabile Energie trifft Gegner besonders hart."
+      },
+      {
+        id: "sniper", name: "SCHARFSCHÜTZE", short: "SNIPER", cost: 265, unlock: 11,
+        damage: 230, range: 315, rate: .34, color: "#75f0bd", accent: "#d2ffed",
+        description: "Extrem hohe Reichweite und mächtige Einzelschüsse."
+      },
+      {
+        id: "sun", name: "SONNEN-TURM", short: "SONNE", cost: 300, unlock: 15,
+        damage: 52, range: 175, rate: .72, color: "#ffb52e", accent: "#fff0ad",
+        description: "Eine Nova trifft alle Monster in Reichweite."
+      },
+      {
+        id: "helicopter", name: "HELIKOPTER-BASIS", short: "HELIKOPTER", cost: 325, unlock: 18,
+        damage: 105, range: 225, rate: .42, color: "#59e39f", accent: "#d4ffea",
+        description: "Kreist über dem Feld und wechselt mit jedem Level die Waffe.",
+        levels: ["Präzisionsschütze", "Sturmgewehr", "Bordgeschütz", "Vulkan-Minigun"]
+      },
+      {
+        id: "airplane", name: "FLUGZEUG-HANGAR", short: "FLUGZEUG", cost: 370, unlock: 22,
+        damage: 42, range: 250, rate: 1.4, color: "#65b7ff", accent: "#d5edff",
+        description: "Patrouilliert im großen Kreis und entwickelt Bomben und Raketen.",
+        levels: ["Doppelkanone", "Brandbomben", "Streubomben", "Lenkraketen"]
+      },
+      {
+        id: "mortar", name: "MÖRSER-TURM", short: "MÖRSER", cost: 255, unlock: 13,
+        damage: 86, range: 245, rate: .42, color: "#c7a56c", accent: "#fff0c9", splash: 88,
+        description: "Langsame Granaten verursachen großen Flächenschaden."
+      },
+      {
+        id: "chrono", name: "CHRONO-TURM", short: "CHRONO", cost: 240, unlock: 14,
+        damage: 8, range: 180, rate: .62, color: "#58e6d8", accent: "#cefffb",
+        description: "Zeitfelder verlangsamen ganze Gegnergruppen."
+      },
+      {
+        id: "military", name: "MILITÄRBASIS", short: "MILITÄRBASIS", cost: 340, unlock: 24,
+        damage: 0, range: 120, rate: 0, color: "#8fba62", accent: "#e7ffc9",
+        description: "Produziert alle 60 Sekunden und zu Wellenbeginn ein Kampffahrzeug.",
+        levels: ["Späher-Wagen", "Schwerer Panzerwagen", "Geschütz-Wagen", "Belagerungspanzer"]
+      }
+    ];
+
+    const ENEMY_TYPES = {
+      normal: { name: "Normales Monster", hp: 100, speed: 60, reward: 18, radius: 22, color: "#69d45c" },
+      fast: { name: "Schnelles Monster", hp: 50, speed: 112, reward: 14, radius: 18, color: "#ffd43b" },
+      armored: { name: "Panzer-Golem", hp: 280, speed: 42, reward: 34, radius: 27, color: "#7396bc", armor: .22 },
+      phantom: { name: "Phantom", hp: 90, speed: 88, reward: 25, radius: 20, color: "#5cf1e6" },
+      brute: { name: "Fels-Bestie", hp: 520, speed: 31, reward: 52, radius: 31, color: "#c27a47", armor: .12 },
+      swarm: { name: "Schwarm-Läufer", hp: 34, speed: 135, reward: 10, radius: 14, color: "#ff82d5" },
+      boss: { name: "Boss-Monster", hp: 1000, speed: 35, reward: 135, radius: 38, color: "#e64444" }
+    };
+
+    function loadProgress() {
+      try {
+        const saved = JSON.parse(localStorage.getItem("megaTowerDefenseProgress") || "null");
+        if (saved && Number.isFinite(saved.gems) && Array.isArray(saved.unlocked)) {
+          gems = Math.max(0, Math.floor(saved.gems));
+          bestWave = Math.max(0, Math.floor(saved.bestWave||0));
+          completedMissions=Array.isArray(saved.completedMissions)?saved.completedMissions.filter(n=>Number.isInteger(n)&&n>=0&&n<MISSIONS.length):[];
+          unlockedTowers = [...new Set(["gun", "laser", "ice", "rocket", "tesla", ...saved.unlocked])].filter(id => TOWER_TYPES.some(t => t.id === id));
+        }
+      } catch (_) { /* Das Spiel bleibt auch ohne verfügbaren Speicher spielbar. */ }
+    }
+
+    function saveProgress() {
+      try { localStorage.setItem("megaTowerDefenseProgress", JSON.stringify({ gems, bestWave, completedMissions, unlocked: unlockedTowers })); } catch (_) {}
+    }
+
+    setMap(0);
+
+    function roundedRect(x, y, w, h, r) {
+      const radius = Math.min(r, w / 2, h / 2);
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, radius);
+    }
+
+    function fillRounded(x, y, w, h, r, fill, stroke = null, line = 1) {
+      roundedRect(x, y, w, h, r);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      if (stroke) {
+        ctx.lineWidth = line;
+        ctx.strokeStyle = stroke;
+        ctx.stroke();
+      }
+    }
+
+    function text(value, x, y, size, color = "#fff", align = "left", weight = 700) {
+      ctx.font = `${weight} ${size}px Inter, system-ui, sans-serif`;
+      ctx.fillStyle = color;
+      ctx.textAlign = align;
+      ctx.textBaseline = "middle";
+      ctx.fillText(value, x, y);
+    }
+
+    function insideRect(px, py, r) {
+      return px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h;
+    }
+
+    function button(rect, label, color, enabled = true, subtitle = "") {
+      const hover = enabled && insideRect(mouse.x, mouse.y, rect);
+      ctx.save();
+      ctx.shadowColor = hover ? color : "rgba(0,0,0,.35)";
+      ctx.shadowBlur = hover ? 28 : 12;
+      const grad = ctx.createLinearGradient(rect.x, rect.y, rect.x, rect.y + rect.h);
+      grad.addColorStop(0, enabled ? (hover ? lighten(color, 35) : lighten(color, 18)) : "#52606a");
+      grad.addColorStop(1, enabled ? color : "#323b43");
+      fillRounded(rect.x, rect.y + (hover ? -3 : 0), rect.w, rect.h, 15, grad, enabled ? "rgba(255,255,255,.55)" : "rgba(255,255,255,.12)", 2);
+      text(label, rect.x + rect.w / 2, rect.y + rect.h / 2 - (subtitle ? 9 : 0) + (hover ? -3 : 0), subtitle ? 26 : 30, enabled ? "#fff" : "#9da7ad", "center", 900);
+      if (subtitle) text(subtitle, rect.x + rect.w / 2, rect.y + rect.h / 2 + 18 + (hover ? -3 : 0), 14, enabled ? "rgba(255,255,255,.82)" : "#7f898e", "center", 700);
+      ctx.restore();
+      return hover;
+    }
+
+    function lighten(hex, amount) {
+      const raw = hex.replace("#", "");
+      const value = parseInt(raw.length === 3 ? raw.split("").map(c => c + c).join("") : raw, 16);
+      const r = Math.min(255, (value >> 16) + amount);
+      const g = Math.min(255, ((value >> 8) & 255) + amount);
+      const b = Math.min(255, (value & 255) + amount);
+      return `rgb(${r},${g},${b})`;
+    }
+
+    function drawBackdrop() {
+      const grad = ctx.createRadialGradient(W * .5, H * .38, 40, W * .5, H * .5, 800);
+      grad.addColorStop(0, "#173a55");
+      grad.addColorStop(.52, "#091c2b");
+      grad.addColorStop(1, "#030912");
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = "rgba(82,180,225,.07)";
+      ctx.lineWidth = 1;
+      for (let x = -80; x < W + 100; x += 54) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + 240, H); ctx.stroke();
+      }
+      for (let y = 18; y < H; y += 54) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      }
+    }
+
+    function initMotes() {
+      ambientMotes = Array.from({ length: 65 }, () => ({
+        x: Math.random() * W, y: Math.random() * H,
+        size: 1 + Math.random() * 3, speed: 6 + Math.random() * 18,
+        phase: Math.random() * TAU
+      }));
+    }
+
+    function drawMotes(dt) {
+      for (const mote of ambientMotes) {
+        mote.y -= mote.speed * dt;
+        mote.x += Math.sin(elapsed * .7 + mote.phase) * 6 * dt;
+        if (mote.y < -10) { mote.y = H + 10; mote.x = Math.random() * W; }
+        ctx.globalAlpha = .18 + Math.sin(elapsed * 2 + mote.phase) * .1;
+        ctx.fillStyle = "#79dfff";
+        ctx.beginPath(); ctx.arc(mote.x, mote.y, mote.size, 0, TAU); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawLogo(y, scale = 1) {
+      ctx.save();
+      ctx.translate(W / 2, y);
+      ctx.scale(scale, scale);
+      ctx.shadowColor = "#43c7ff";
+      ctx.shadowBlur = 30;
+      text("MEGA", 0, -33, 66, "#eafaff", "center", 950);
+      ctx.shadowColor = "#d48cff";
+      text("TOWER DEFENSE", 0, 35, 57, "#74ddff", "center", 950);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "#ffca4f";
+      ctx.fillRect(-230, 73, 460, 4);
+      ctx.restore();
+    }
+
+    function drawMenu(dt) {
+      drawBackdrop();
+      drawMotes(dt);
+      const pulse = 1 + Math.sin(elapsed * 1.6) * .015;
+      drawLogo(185, pulse);
+
+      ctx.save();
+      ctx.translate(W / 2, 360);
+      ctx.rotate(Math.sin(elapsed * .8) * .02);
+      drawTowerModel(TOWER_TYPES[4], 0, 0, 2.05, elapsed * .5);
+      ctx.restore();
+
+      button({ x: 430, y: 500, w: 420, h: 78 }, "SPIEL STARTEN", "#168bc0", true, "Mission und Arsenal wählen");
+      button({ x: 480, y: 602, w: 320, h: 68 }, "TURM-SHOP", "#7c4dcc", true, `${gems} Gems verfügbar`);
+      drawGem(1048, 43, 18);
+      text(`${gems}`, 1078, 43, 23, "#e7c5ff", "left", 950);
+      text(`${unlockedTowers.length}/${TOWER_TYPES.length} Türme  •  ${completedMissions.length}/${MISSIONS.length} Missionen  •  Bestwelle ${bestWave}`, W / 2, 720, 18, "#8fb7ca", "center", 600);
+      text("Fortschritt wird automatisch gespeichert", W / 2, 753, 15, "#648598", "center", 600);
+    }
+
+    function drawMapSelect() {
+      drawBackdrop(); drawMotes(0);
+      text("MISSIONSZENTRALE", W / 2, 58, 42, "#eafaff", "center", 950);
+      text("Schließe eine Mission ab, um die nächste freizuschalten", W / 2, 105, 18, "#83aabd", "center", 650);
+      MISSIONS.forEach((mission, i) => {
+        const map=MAPS[mission.map],r=missionCard(i),unlocked=isMissionUnlocked(i),complete=completedMissions.includes(i);
+        const hover=unlocked&&insideRect(mouse.x,mouse.y,r);
+        ctx.save();ctx.shadowColor=hover?mission.color:"rgba(0,0,0,.5)";ctx.shadowBlur=hover?22:7;
+        fillRounded(r.x,r.y-(hover?4:0),r.w,r.h,18,unlocked?"#102635":"#0a1720",complete?"#ffd45a":hover?mission.color:"rgba(125,203,232,.25)",complete?3:hover?4:2);ctx.restore();
+        const preview={x:r.x+15,y:r.y+15,w:130,h:r.h-30};const pg=ctx.createLinearGradient(0,preview.y,0,preview.y+preview.h);pg.addColorStop(0,map.ground[0]);pg.addColorStop(1,map.ground[1]);fillRounded(preview.x,preview.y,preview.w,preview.h,12,pg);
+        drawMiniPath(map.path,preview,map.road);
+        if(!unlocked){ctx.fillStyle="rgba(2,7,11,.7)";ctx.fillRect(preview.x,preview.y,preview.w,preview.h);text("🔒",preview.x+preview.w/2,preview.y+preview.h/2,30,"#82929a","center",800);}
+        text(mission.name,r.x+165,r.y+37,19,unlocked?mission.color:"#52636c","left",950);
+        text(mission.subtitle,r.x+165,r.y+69,14,unlocked?"#b2c8d1":"#52636c","left",650);
+        text(`${mission.waves} WELLEN`,r.x+165,r.y+105,16,unlocked?"#fff":"#52636c","left",900);
+        const difficulty=i<2?"LEICHT":i<4?"MITTEL":"SCHWER";text(difficulty,r.x+165,r.y+137,14,mission.color,"left",850);
+        text(complete?"ABGESCHLOSSEN ✓":unlocked?"MISSION STARTEN":"GESPERRT",r.x+165,r.y+184,14,complete?"#ffd45a":unlocked?"#fff":"#52636c","left",900);
+      });
+      text("‹ HAUPTMENÜ",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:180,h:50})?"#fff":"#83a3b3","left",800);
+    }
+
+    function missionCard(i){return{x:48+(i%3)*410,y:145+Math.floor(i/3)*270,w:365,h:240};}
+    function isMissionUnlocked(i){return i===0||completedMissions.includes(i)||completedMissions.includes(i-1);}
+
+    function drawMiniPath(points, rect, color) {
+      const xs=points.map(p=>p.x), ys=points.map(p=>p.y);
+      const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
+      ctx.save(); ctx.beginPath();
+      points.forEach((p,i)=>{const x=rect.x+15+(p.x-minX)/(maxX-minX)*(rect.w-30);const y=rect.y+15+(p.y-minY)/(maxY-minY)*(rect.h-30);if(i===0)ctx.moveTo(x,y);else ctx.lineTo(x,y);});
+      ctx.lineCap="round";ctx.lineJoin="round";ctx.strokeStyle="rgba(0,0,0,.45)";ctx.lineWidth=18;ctx.stroke();ctx.strokeStyle=color;ctx.lineWidth=12;ctx.stroke();ctx.restore();
+    }
+
+    function shopCard(i) {
+      return { x: 105 + (i%2)*545, y: 175 + Math.floor(i/2)*245, w: 475, h: 205 };
+    }
+
+    function drawShop() {
+      drawBackdrop(); drawMotes(0);
+      text("TURM-SHOP",W/2,65,46,"#eafaff","center",950);
+      drawGem(1060,64,20); text(`${gems} GEMS`,1090,65,22,"#e7c5ff","left",950);
+      text("Verdiene alle 3 Wellen einen Gem und 5 Bonus-Gems pro Missionssieg",W/2,112,18,"#91afbd","center",650);
+      const premium=TOWER_TYPES.filter(t=>t.unlock),pageCount=Math.ceil(premium.length/4);
+      shopPage=Math.min(shopPage,pageCount-1);
+      premium.slice(shopPage*4,shopPage*4+4).forEach((tower,i)=>{
+        const r=shopCard(i), unlocked=unlockedTowers.includes(tower.id), affordable=gems>=tower.unlock;
+        ctx.save();ctx.shadowColor=unlocked?tower.color:"rgba(0,0,0,.5)";ctx.shadowBlur=unlocked?18:7;
+        fillRounded(r.x,r.y,r.w,r.h,18,"#102532",unlocked?tower.color:"rgba(126,191,216,.25)",unlocked?3:2);ctx.restore();
+        drawTowerModel(tower,r.x+82,r.y+98,1.15,elapsed*.4);
+        text(tower.name,r.x+155,r.y+42,22,tower.accent,"left",950);
+        text(tower.id==="military"?"Fahrzeug 180 LP  •  Einsatz 60s":`Schaden ${tower.damage}  •  Reichweite ${tower.range}`,r.x+155,r.y+78,15,"#c4d9e1","left",700);
+        wrapText(tower.description,r.x+300,r.y+112,290,15,17,"#86a5b2");
+        if(unlocked) text("FREIGESCHALTET ✓",r.x+300,r.y+172,17,"#70e49a","center",900);
+        else { drawGem(r.x+243,r.y+171,14); text(`${tower.unlock} GEMS`,r.x+266,r.y+172,18,affordable?"#e8c7ff":"#8b738f","left",950); }
+      });
+      if(pageCount>1){
+        text("‹",470,733,42,shopPage>0?"#fff":"#3d5663","center",950);
+        text(`SHOP-SEITE ${shopPage+1}/${pageCount}`,W/2,733,15,"#7796a5","center",850);
+        text("›",810,733,42,shopPage<pageCount-1?"#fff":"#3d5663","center",950);
+      }
+      text("‹ HAUPTMENÜ",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:180,h:50})?"#fff":"#83a3b3","left",800);
+      drawToastOverlay();
+    }
+
+    function loadoutCard(i) {
+      const gap = 18;
+      const w = 220;
+      const x = 54 + i * (w + gap);
+      return { x, y: 205, w, h: 410 };
+    }
+
+    function drawLoadout() {
+      drawBackdrop();
+      drawMotes(0);
+      text("WÄHLE DEIN ARSENAL", W / 2, 73, 45, "#eafaff", "center", 950);
+      text(`Genau 3 Türme auswählen  •  ${selectedLoadout.length}/3 bereit`, W / 2, 125, 22, selectedLoadout.length === 3 ? "#ffd65c" : "#83b7cc", "center", 700);
+
+      const available = TOWER_TYPES.filter(t=>unlockedTowers.includes(t.id));
+      const pageCount = Math.ceil(available.length/5);
+      loadoutPage = Math.min(loadoutPage, pageCount-1);
+      const pageTowers = available.slice(loadoutPage*5,loadoutPage*5+5);
+      pageTowers.forEach((tower, i) => {
+        const r = loadoutCard(i);
+        const selected = selectedLoadout.includes(tower.id);
+        const hover = insideRect(mouse.x, mouse.y, r);
+        ctx.save();
+        ctx.shadowColor = selected ? "#ffd34e" : hover ? tower.color : "rgba(0,0,0,.5)";
+        ctx.shadowBlur = selected ? 25 : hover ? 18 : 8;
+        const grad = ctx.createLinearGradient(r.x, r.y, r.x, r.y + r.h);
+        grad.addColorStop(0, selected ? "#293d4c" : "#152b3a");
+        grad.addColorStop(1, "#091620");
+        fillRounded(r.x, r.y - (hover ? 4 : 0), r.w, r.h, 17, grad, selected ? "#ffd34e" : "rgba(127,205,237,.32)", selected ? 5 : 2);
+        ctx.restore();
+        if (selected) {
+          fillRounded(r.x + 13, r.y + 13, 42, 42, 21, "#ffd34e");
+          text("✓", r.x + 34, r.y + 34, 25, "#15212b", "center", 950);
+        }
+        drawTowerModel(tower, r.x + r.w / 2, r.y + 105, 1.25, elapsed * .45);
+        text(tower.name, r.x + r.w / 2, r.y + 184, tower.name.length > 16 ? 16 : 18, tower.accent, "center", 900);
+        text(tower.id==="military"?"Fahrzeug  180 LP":`Schaden  ${tower.damage}`, r.x + 22, r.y + 226, 17, "#ecf8ff", "left", 700);
+        text(tower.id==="military"?"Neue Einheit / Welle":`Reichweite  ${tower.range}`, r.x + 22, r.y + 259, tower.id==="military"?15:17, "#ecf8ff", "left", 700);
+        text(tower.id==="military"?"Zusätzlich alle 60s":`Feuerrate  ${tower.rate}/s`, r.x + 22, r.y + 292, tower.id==="military"?15:17, "#ecf8ff", "left", 700);
+        text(`${tower.cost} Gold`, r.x + r.w / 2, r.y + 329, 19, "#ffd45a", "center", 900);
+        wrapText(tower.description, r.x + r.w / 2, r.y + 365, r.w - 30, 16, 18, "#91aebb");
+      });
+
+      if(pageCount>1){
+        text("‹",25,410,48,loadoutPage>0?"#fff":"#3d5663","center",900);
+        text("›",1255,410,48,loadoutPage<pageCount-1?"#fff":"#3d5663","center",900);
+        text(`SEITE ${loadoutPage+1}/${pageCount}`,W/2,642,14,"#678593","center",800);
+      }
+
+      if (selectedLoadout.length === 3) {
+        button({ x: 430, y: 670, w: 420, h: 82 }, "KAMPF STARTEN", "#2aa866", true, `Startgold: ${MISSIONS[selectedMission].startGold}  •  ${MISSIONS[selectedMission].waves} Wellen`);
+      } else {
+        text("Wähle noch " + (3 - selectedLoadout.length) + (selectedLoadout.length === 2 ? " Turm" : " Türme"), W / 2, 711, 22, "#7796a6", "center", 800);
+      }
+      text(`MISSION: ${MISSIONS[selectedMission].name}`,W-45,45,16,MISSIONS[selectedMission].color,"right",900);
+      text("‹ MISSIONEN", 45, 45, 18, insideRect(mouse.x, mouse.y, { x: 25, y: 20, w: 165, h: 50 }) ? "#fff" : "#83a3b3", "left", 800);
+      drawToastOverlay();
+    }
+
+    function drawToastOverlay(){
+      if(toast.time<=0)return;const alpha=Math.min(1,toast.time*2);ctx.save();ctx.globalAlpha=alpha;
+      fillRounded(W/2-245,92,490,54,14,"rgba(5,14,22,.92)",toast.color,2);text(toast.text,W/2,119,21,toast.color,"center",900);ctx.restore();
+    }
+
+    function wrapText(value, x, y, maxWidth, fontSize, lineHeight, color) {
+      ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = color;
+      const words = value.split(" ");
+      const lines = [];
+      let line = "";
+      for (const word of words) {
+        const test = line ? line + " " + word : word;
+        if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = word; }
+        else line = test;
+      }
+      lines.push(line);
+      lines.forEach((entry, i) => ctx.fillText(entry, x, y + i * lineHeight));
+    }
+
+    function pointAtDistance(distance) {
+      const d = Math.max(0, Math.min(totalPathLength, distance));
+      for (const seg of pathSegments) {
+        if (d <= seg.start + seg.length) {
+          const t = (d - seg.start) / seg.length;
+          return { x: seg.a.x + seg.dx * t, y: seg.a.y + seg.dy * t };
+        }
+      }
+      return { ...path[path.length - 1] };
+    }
+
+    function drawField() {
+      const map=MAPS[selectedMap];
+      const bg = ctx.createLinearGradient(0, 0, 0, FIELD_H);
+      bg.addColorStop(0, map.ground[0]);
+      bg.addColorStop(1, map.ground[1]);
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, FIELD_H);
+
+      ctx.fillStyle = selectedMap===1?"rgba(189,239,255,.1)":selectedMap===2?"rgba(255,134,72,.09)":"rgba(136,214,130,.08)";
+      for (let y = 18; y < FIELD_H; y += 34) {
+        for (let x = (Math.floor(y / 34) % 2) * 18; x < W; x += 36) {
+          ctx.beginPath();
+          ctx.moveTo(x, y + 5); ctx.lineTo(x + 4, y - 4); ctx.lineTo(x + 7, y + 5); ctx.fill();
+        }
+      }
+
+      ctx.save();
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.beginPath();
+      ctx.moveTo(path[0].x, path[0].y);
+      for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
+      ctx.strokeStyle = selectedMap===2?"#1d1415":"#14251f";
+      ctx.lineWidth = pathWidths + 14;
+      ctx.stroke();
+      ctx.strokeStyle = map.road;
+      ctx.lineWidth = pathWidths;
+      ctx.stroke();
+      ctx.setLineDash([13, 16]);
+      ctx.strokeStyle = "rgba(255,235,180,.23)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.restore();
+
+      for (let i = 0; i < path.length; i++) {
+        const p = path[i];
+        ctx.fillStyle = "rgba(255,255,255,.05)";
+        ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, TAU); ctx.fill();
+      }
+
+      drawPortal(path[0].x + 35, path[0].y, "#b76cff", false);
+      drawPortal(path[path.length - 1].x - 55, path[path.length - 1].y, "#62e5ff", true);
+    }
+
+    function drawPortal(x, y, color, core) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 25;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 7;
+      ctx.beginPath(); ctx.arc(0, 0, 27 + Math.sin(elapsed * 3) * 3, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = .35;
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(0, 0, 21, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1;
+      if (core) {
+        ctx.fillStyle = "#d9fbff";
+        ctx.beginPath(); ctx.arc(0, 0, 9, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawHud() {
+      ctx.save();
+      const grad = ctx.createLinearGradient(0, 0, 0, 85);
+      grad.addColorStop(0, "rgba(4,12,20,.94)");
+      grad.addColorStop(1, "rgba(8,24,32,.82)");
+      fillRounded(20, 18, 600, 62, 16, grad, "rgba(127,220,255,.28)", 2);
+      drawHeart(55, 49, 18, "#ff5b69");
+      text(`${hp}`, 83, 49, 27, "#fff", "left", 950);
+      drawCoin(165, 49, 17);
+      text(`${gold}`, 190, 49, 27, "#ffd45b", "left", 950);
+      drawGem(302,49,14);text(`${gems}`,324,49,22,"#e7c5ff","left",950);
+      text(`WELLE ${Math.max(1, wave)}/${MISSIONS[selectedMission].waves}`, 395, 49, 23, "#8be7ff", "left", 950);
+      if (!waveActive && nextWaveCountdown > 0) {
+        fillRounded(895, 18, 365, 62, 16, "rgba(5,15,24,.9)", "rgba(255,207,77,.45)", 2);
+        text(`Nächste Welle in ${Math.ceil(nextWaveCountdown)}`, 1078, 49, 23, "#ffd65a", "center", 900);
+      } else if (waveActive) {
+        fillRounded(990, 18, 270, 62, 16, "rgba(5,15,24,.9)", "rgba(127,220,255,.25)", 2);
+        text(`${enemies.length + waveQueue.length} Gegner`, 1125, 49, 21, "#d8f6ff", "center", 800);
+      }
+      [1,2,3,5].forEach((speed,i)=>{
+        const r=speedButtonRect(i),active=gameSpeed===speed,hover=insideRect(mouse.x,mouse.y,r);
+        fillRounded(r.x,r.y,r.w,r.h,9,active?"#198bb2":hover?"#163a4c":"rgba(5,18,27,.9)",active?"#8be9ff":"rgba(113,190,219,.3)",active?3:1);
+        text(`${speed}×`,r.x+r.w/2,r.y+r.h/2,17,active?"#fff":"#87a9b7","center",900);
+      });
+      ctx.restore();
+    }
+
+    function speedButtonRect(i){return{x:640+i*61,y:26,w:52,h:46};}
+
+    function drawHeart(x, y, size, color) {
+      ctx.save(); ctx.translate(x, y); ctx.scale(size / 20, size / 20);
+      ctx.fillStyle = color; ctx.shadowColor = color; ctx.shadowBlur = 10;
+      ctx.beginPath();
+      ctx.moveTo(0, 17); ctx.bezierCurveTo(-24, 2, -17, -16, -7, -16);
+      ctx.bezierCurveTo(-2, -16, 0, -11, 0, -8);
+      ctx.bezierCurveTo(0, -11, 4, -16, 9, -16);
+      ctx.bezierCurveTo(22, -16, 25, 2, 0, 17); ctx.fill(); ctx.restore();
+    }
+
+    function drawCoin(x, y, r) {
+      ctx.save(); ctx.translate(x, y); ctx.shadowColor = "#ffc93c"; ctx.shadowBlur = 10;
+      const g = ctx.createRadialGradient(-4, -5, 2, 0, 0, r);
+      g.addColorStop(0, "#fff1a2"); g.addColorStop(.45, "#ffd13e"); g.addColorStop(1, "#b87a13");
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+      ctx.strokeStyle = "#fff09b"; ctx.lineWidth = 2; ctx.stroke();
+      text("G", 0, 1, 16, "#7a4b09", "center", 950); ctx.restore();
+    }
+
+    function drawGem(x,y,r){
+      ctx.save();ctx.translate(x,y);ctx.shadowColor="#c46cff";ctx.shadowBlur=12;
+      const g=ctx.createLinearGradient(-r,-r,r,r);g.addColorStop(0,"#f2d2ff");g.addColorStop(.45,"#bd67f0");g.addColorStop(1,"#572182");
+      ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(0,-r);ctx.lineTo(r*.82,-r*.28);ctx.lineTo(r*.58,r*.68);ctx.lineTo(0,r);ctx.lineTo(-r*.58,r*.68);ctx.lineTo(-r*.82,-r*.28);ctx.closePath();ctx.fill();
+      ctx.strokeStyle="#f6dcff";ctx.lineWidth=2;ctx.stroke();ctx.beginPath();ctx.moveTo(0,-r);ctx.lineTo(0,r);ctx.moveTo(-r*.82,-r*.28);ctx.lineTo(r*.82,-r*.28);ctx.stroke();ctx.restore();
+    }
+
+    function drawHotbar() {
+      const g = ctx.createLinearGradient(0, FIELD_H, 0, H);
+      g.addColorStop(0, "#0b1d28"); g.addColorStop(1, "#050c13");
+      ctx.fillStyle = g; ctx.fillRect(0, FIELD_H, W, H - FIELD_H);
+      ctx.strokeStyle = "rgba(95,213,255,.3)"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(0, FIELD_H); ctx.lineTo(W, FIELD_H); ctx.stroke();
+      text("ARSENAL", 70, 684, 17, "#7397a8", "left", 900);
+
+      selectedLoadout.forEach((id, i) => {
+        const tower = getTowerType(id);
+        const currentCost=currentTowerCost(tower);
+        const r = hotbarRect(i);
+        const selected = selectedTowerType === id;
+        const affordable = gold >= currentCost;
+        const hover = insideRect(mouse.x, mouse.y, r);
+        ctx.save();
+        ctx.shadowColor = selected ? tower.color : "rgba(0,0,0,.5)";
+        ctx.shadowBlur = selected ? 20 : 8;
+        fillRounded(r.x, r.y, r.w, r.h, 13, selected ? "#1c3744" : hover ? "#142c39" : "#0d202b", selected ? tower.color : "rgba(109,192,222,.3)", selected ? 4 : 2);
+        ctx.restore();
+        drawTowerModel(tower, r.x + 45, r.y + 50, .66, elapsed * .6);
+        text(`${i + 1}`, r.x + 13, r.y + 14, 13, "#718d9a", "center", 800);
+        text(tower.short, r.x + 86, r.y + 31, 17, affordable ? tower.accent : "#69747a", "left", 900);
+        drawCoin(r.x + 100, r.y + 69, 11);
+        text(`${currentCost}`, r.x + 118, r.y + 69, 18, affordable ? "#ffd55c" : "#ff6670", "left", 900);
+        if((placedCounts[id]||0)>0)text(`+${Math.round((Math.pow(1.18,placedCounts[id])-1)*100)}%`,r.x+r.w-13,r.y+68,12,"#ffae72","right",850);
+      });
+
+      fillRounded(945, 658, 300, 130, 14, "rgba(10,27,37,.94)", "rgba(116,183,208,.25)", 1);
+      if(selectedVehicle&&vehicles.includes(selectedVehicle)){
+        const v=selectedVehicle;
+        text(v.level===4?"BELAGERUNGSPANZER":v.level===3?"GESCHÜTZ-WAGEN":v.level===2?"PANZERWAGEN":"SPÄHER-WAGEN",1095,681,15,"#dfffad","center",950);
+        text(`LEBEN ${Math.ceil(v.hp)}/${v.maxHp}`,1095,708,14,"#bcd5c5","center",800);
+        text(v.range>0?`GESCHÜTZ-RADIUS ${v.range}`:"RAMMSCHADEN = RESTLEBEN",1095,733,13,"#8fba9a","center",700);
+        text("Fährt dem Feind entgegen",1095,760,13,"#6f9181","center",650);
+      } else if(selectedPlacedTower && towers.includes(selectedPlacedTower)){
+        const t=selectedPlacedTower,cost=upgradeCost(t),max=t.level>=4;
+        text(`${t.type.short}  •  LEVEL ${t.level}`,1095,677,16,t.type.accent,"center",950);
+        text(towerAbility(t),1095,702,14,t.type.color,"center",850);
+        text(t.type.id==="military"?`Fahrzeug ${t.vehicleHp} LP  •  Einsatz ${Math.ceil(t.deployTimer)}s`:`Schaden ${Math.round(t.damage)}  Reichweite ${Math.round(t.range)}`,1095,723,13,"#c3dce6","center",700);
+        const r=upgradeButtonRect();button(r,max?"MAXIMUM":`UPGRADE  ${cost} G`,t.type.color,!max&&gold>=cost);
+      } else if (selectedTowerType) {
+        const tower = getTowerType(selectedTowerType);
+        text("PLATZIERUNG AKTIV", 1095, 692, 16, tower.color, "center", 900);
+        text("Auf freie Wiese klicken", 1095, 724, 17, "#d6ebf2", "center", 700);
+        text("Rechtsklick / ESC: abbrechen", 1095, 756, 13, "#708d9a", "center", 600);
+      } else {
+        text("TURM WÄHLEN", 1095, 704, 17, "#8eb4c3", "center", 900);
+        text("Turm bauen oder platzierten", 1095, 734, 15, "#718e9b", "center", 600);
+        text("Turm für Upgrades anklicken",1095,756,14,"#718e9b","center",600);
+      }
+    }
+
+    function upgradeButtonRect(){return{x:970,y:744,w:250,h:36};}
+    function upgradeCost(tower){return Math.round(tower.purchaseCost*(.48+tower.level*.27));}
+
+    function hotbarRect(i) {
+      return { x: 55 + i * 285, y: 698, w: 260, h: 84 };
+    }
+
+    function drawTowerModel(tower, x, y, scale = 1, rotation = 0, level = 1) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.scale(scale, scale);
+      ctx.shadowColor = tower.color;
+      ctx.shadowBlur = 11;
+      if(tower.id==="helicopter"){drawHelicopterModel(level,rotation,tower);ctx.restore();return;}
+      if(tower.id==="airplane"){drawAirplaneModel(level,rotation,tower);ctx.restore();return;}
+      ctx.fillStyle = "#14232b";
+      ctx.beginPath(); ctx.ellipse(0, 22, 32, 13, 0, 0, TAU); ctx.fill();
+      ctx.strokeStyle = tower.color; ctx.lineWidth = 3; ctx.stroke();
+      ctx.fillStyle = "#263c47";
+      ctx.fillRect(-24, 2, 48, 20);
+      ctx.fillStyle = "#395562";
+      ctx.beginPath(); ctx.arc(0, 0, 25, 0, TAU); ctx.fill();
+      ctx.strokeStyle = tower.accent; ctx.lineWidth = 2; ctx.stroke();
+      ctx.rotate(rotation);
+
+      if (tower.id === "gun") {
+        ctx.fillStyle = "#1b2d36"; ctx.fillRect(-8, -12, 35, 20);
+        ctx.fillStyle = tower.color; ctx.fillRect(16, -8, 31, 5); ctx.fillRect(16, 2, 31, 5);
+        ctx.fillStyle = "#fff1a3"; ctx.fillRect(43, -9, 6, 7); ctx.fillRect(43, 1, 6, 7);
+      } else if (tower.id === "laser") {
+        ctx.fillStyle = "#182932"; ctx.beginPath(); ctx.moveTo(-14,-14); ctx.lineTo(23,-10); ctx.lineTo(39,0); ctx.lineTo(23,10); ctx.lineTo(-14,14); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = tower.color; ctx.beginPath(); ctx.arc(34, 0, 8, 0, TAU); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(36, -2, 3, 0, TAU); ctx.fill();
+      } else if (tower.id === "ice") {
+        ctx.fillStyle = tower.color;
+        for (let i = 0; i < 5; i++) { ctx.rotate(TAU / 5); ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(8,-11); ctx.lineTo(35,0); ctx.lineTo(8,11); ctx.closePath(); ctx.fill(); }
+        ctx.fillStyle = "#eaffff"; ctx.beginPath(); ctx.arc(0, 0, 9, 0, TAU); ctx.fill();
+      } else if (tower.id === "rocket") {
+        ctx.fillStyle = "#1a2c34"; fillRounded(-15, -19, 40, 16, 7, "#293f49", tower.color, 2); fillRounded(-15, 3, 40, 16, 7, "#293f49", tower.color, 2);
+        ctx.fillStyle = tower.color; ctx.beginPath(); ctx.moveTo(25,-19); ctx.lineTo(43,-11); ctx.lineTo(25,-3); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(25,3); ctx.lineTo(43,11); ctx.lineTo(25,19); ctx.closePath(); ctx.fill();
+      } else if (tower.id === "tesla") {
+        ctx.strokeStyle = tower.color; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(-18,10); ctx.quadraticCurveTo(-28,-10,-12,-18); ctx.quadraticCurveTo(0,-29,12,-18); ctx.quadraticCurveTo(28,-10,18,10); ctx.stroke();
+        ctx.fillStyle = tower.accent; ctx.beginPath(); ctx.arc(0, -16, 8 + Math.sin(elapsed * 8) * 2, 0, TAU); ctx.fill();
+      } else if(tower.id==="poison"){
+        ctx.fillStyle=tower.color;ctx.beginPath();ctx.arc(7,-8,17,0,TAU);ctx.fill();ctx.fillStyle="#183527";ctx.beginPath();ctx.arc(13,-13,6,0,TAU);ctx.fill();
+        ctx.strokeStyle=tower.accent;ctx.lineWidth=5;ctx.beginPath();ctx.moveTo(-10,8);ctx.quadraticCurveTo(8,-4,34,0);ctx.stroke();
+      } else if(tower.id==="plasma"){
+        ctx.strokeStyle=tower.color;ctx.lineWidth=7;ctx.beginPath();ctx.arc(3,0,19,0,TAU);ctx.stroke();
+        ctx.fillStyle=tower.accent;ctx.beginPath();ctx.arc(4,0,10+Math.sin(elapsed*9)*2,0,TAU);ctx.fill();ctx.fillStyle="#4b1764";ctx.fillRect(19,-5,24,10);
+      } else if(tower.id==="sniper"){
+        ctx.fillStyle="#16292b";fillRounded(-11,-10,50,20,5,"#19382f",tower.color,2);ctx.fillStyle=tower.color;ctx.fillRect(28,-3,30,6);
+        ctx.strokeStyle=tower.accent;ctx.lineWidth=3;ctx.beginPath();ctx.arc(9,-13,7,0,TAU);ctx.stroke();
+      } else if(tower.id==="sun"){
+        ctx.fillStyle=tower.color;ctx.beginPath();ctx.arc(0,0,16,0,TAU);ctx.fill();ctx.strokeStyle=tower.accent;ctx.lineWidth=5;
+        for(let i=0;i<8;i++){ctx.rotate(TAU/8);ctx.beginPath();ctx.moveTo(21,0);ctx.lineTo(37,0);ctx.stroke();}ctx.fillStyle="#fff7c4";ctx.beginPath();ctx.arc(-5,-5,5,0,TAU);ctx.fill();
+      } else if(tower.id==="mortar"){
+        ctx.fillStyle="#202c2c";ctx.rotate(-.25);fillRounded(-8,-14,47,28,8,"#263a39",tower.color,3);ctx.fillStyle="#101819";ctx.beginPath();ctx.arc(37,0,11,0,TAU);ctx.fill();
+      } else if(tower.id==="chrono"){
+        ctx.strokeStyle=tower.color;ctx.lineWidth=5;ctx.beginPath();ctx.arc(0,0,22,0,TAU);ctx.stroke();ctx.rotate(elapsed*1.8);ctx.beginPath();ctx.moveTo(0,-18);ctx.lineTo(0,0);ctx.lineTo(13,7);ctx.stroke();ctx.fillStyle=tower.accent;ctx.beginPath();ctx.arc(0,0,6,0,TAU);ctx.fill();
+      } else if(tower.id==="military"){
+        ctx.rotate(-rotation);ctx.fillStyle="#283927";fillRounded(-30,-24,60,47,7,"#283927",tower.color,3);ctx.fillStyle="#17241a";fillRounded(-21,-9,42,30,4,"#17241a");
+        ctx.strokeStyle="#cce7a9";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-25,-18);ctx.lineTo(25,-18);ctx.moveTo(-25,-10);ctx.lineTo(25,-10);ctx.stroke();
+        if(level>=2){ctx.fillStyle="#6e8a51";ctx.fillRect(-34,-29,15,16);ctx.fillRect(19,-29,15,16);}
+        if(level>=3){ctx.strokeStyle=tower.accent;ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(0,-24);ctx.lineTo(0,-43);ctx.stroke();ctx.beginPath();ctx.arc(0,-45,5,0,TAU);ctx.fillStyle=tower.color;ctx.fill();}
+        if(level>=4){ctx.fillStyle="#9fbd6d";ctx.beginPath();ctx.moveTo(-30,-24);ctx.lineTo(0,-40);ctx.lineTo(30,-24);ctx.closePath();ctx.fill();text("★",0,-26,16,"#efffd7","center",950);}
+      }
+      if(level>1&&tower.id!=="military"){ctx.rotate(-rotation);ctx.strokeStyle=tower.accent;ctx.lineWidth=2+level;ctx.globalAlpha=.75;ctx.beginPath();ctx.arc(0,5,28+level*2,0,TAU);ctx.stroke();ctx.globalAlpha=1;for(let i=1;i<level;i++){ctx.fillStyle=tower.color;ctx.beginPath();ctx.arc(-12+(i-1)*12,-29,4,0,TAU);ctx.fill();}}
+      ctx.restore();
+    }
+
+    function drawHelicopterModel(level,rotation,tower){
+      const facing=Math.cos(rotation)<0?-1:1;ctx.scale(facing,1);
+      ctx.fillStyle="rgba(0,0,0,.3)";ctx.beginPath();ctx.ellipse(-3,15,38,12,0,0,TAU);ctx.fill();
+      ctx.fillStyle="#1b2d27";ctx.fillRect(-48,-3,25,7);ctx.beginPath();ctx.moveTo(-51,-8);ctx.lineTo(-63,-18);ctx.lineTo(-58,2);ctx.closePath();ctx.fill();
+      const body=level>=3?"#294f40":"#356451";ctx.fillStyle=body;ctx.beginPath();ctx.ellipse(0,0,33+level*2,17+level*.7,0,0,TAU);ctx.fill();ctx.strokeStyle=tower.color;ctx.lineWidth=3;ctx.stroke();
+      const glass=ctx.createLinearGradient(7,-12,31,9);glass.addColorStop(0,"#d8ffff");glass.addColorStop(1,"#397f79");ctx.fillStyle=glass;ctx.beginPath();ctx.ellipse(18,-3,13,10,0,0,TAU);ctx.fill();
+      ctx.strokeStyle="#d8fff0";ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(-35,20);ctx.lineTo(28,20);ctx.moveTo(-29,14);ctx.lineTo(-35,20);ctx.moveTo(21,14);ctx.lineTo(28,20);ctx.stroke();
+      ctx.save();ctx.rotate(elapsed*16);ctx.strokeStyle="#d8fff0";ctx.globalAlpha=.78;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-52,0);ctx.lineTo(52,0);ctx.moveTo(0,-52);ctx.lineTo(0,52);if(level>=3){ctx.moveTo(-37,-37);ctx.lineTo(37,37);ctx.moveTo(37,-37);ctx.lineTo(-37,37);}ctx.stroke();ctx.restore();
+      ctx.fillStyle=tower.color;ctx.beginPath();ctx.arc(0,0,6,0,TAU);ctx.fill();
+      if(level===1){ctx.fillStyle=tower.accent;ctx.fillRect(20,7,40,4);ctx.fillStyle="#162622";ctx.fillRect(10,3,23,12);}
+      else if(level===2){ctx.fillStyle=tower.color;ctx.fillRect(14,7,45,6);ctx.fillRect(3,-18,29,7);ctx.fillStyle="#d8fff0";ctx.fillRect(49,8,12,3);}
+      else if(level===3){fillRounded(6,5,39,16,5,"#172720",tower.color,2);ctx.fillStyle=tower.accent;ctx.fillRect(37,10,34,6);ctx.fillStyle="#d9ffb4";ctx.beginPath();ctx.arc(70,13,4,0,TAU);ctx.fill();}
+      else {fillRounded(4,3,43,20,5,"#14251e",tower.color,3);for(let i=-1;i<=1;i++){ctx.fillStyle=tower.accent;ctx.fillRect(40,7+i*5,35,3);}ctx.fillStyle="#a8ffcf";ctx.fillRect(-20,-20,18,7);}
+    }
+
+    function drawAirplaneModel(level,rotation,tower){
+      ctx.rotate(rotation);ctx.fillStyle="rgba(0,0,0,.28)";ctx.beginPath();ctx.ellipse(-5,12,40,12,0,0,TAU);ctx.fill();
+      ctx.fillStyle=level>=3?"#25527a":"#315f86";ctx.beginPath();ctx.moveTo(48,0);ctx.lineTo(5,-11);ctx.lineTo(-30,-9);ctx.lineTo(-48,-20);ctx.lineTo(-39,0);ctx.lineTo(-48,20);ctx.lineTo(-30,9);ctx.lineTo(5,11);ctx.closePath();ctx.fill();ctx.strokeStyle=tower.color;ctx.lineWidth=3;ctx.stroke();
+      ctx.fillStyle="#9cdbff";ctx.beginPath();ctx.ellipse(22,-2,13,6,0,0,TAU);ctx.fill();ctx.fillStyle=tower.accent;ctx.fillRect(-7,-3,40,6);
+      if(level>=2){ctx.fillStyle="#ffb14e";ctx.beginPath();ctx.arc(-10,-16,5,0,TAU);ctx.arc(-10,16,5,0,TAU);ctx.fill();}
+      if(level>=3){ctx.fillStyle=tower.color;ctx.fillRect(-25,-24,16,7);ctx.fillRect(-25,17,16,7);}
+      if(level>=4){ctx.strokeStyle="#fff";ctx.lineWidth=2;ctx.beginPath();ctx.arc(30,0,8+Math.sin(elapsed*8)*2,0,TAU);ctx.stroke();}
+    }
+
+    function drawAirPad(tower){
+      ctx.save();ctx.translate(tower.x,tower.y);ctx.fillStyle="rgba(7,19,25,.88)";ctx.beginPath();ctx.arc(0,0,31,0,TAU);ctx.fill();ctx.strokeStyle=tower.type.color;ctx.lineWidth=3;ctx.stroke();
+      text(tower.type.id==="helicopter"?"H":"✦",0,1,24,tower.type.accent,"center",950);ctx.restore();
+    }
+
+    function drawVehicle(vehicle){
+      if(selectedVehicle===vehicle&&vehicle.range>0){ctx.save();ctx.globalAlpha=.18;ctx.fillStyle="#aee378";ctx.beginPath();ctx.arc(vehicle.x,vehicle.y,vehicle.range,0,TAU);ctx.fill();ctx.globalAlpha=.8;ctx.strokeStyle="#cfff99";ctx.lineWidth=2;ctx.stroke();ctx.restore();}
+      ctx.save();ctx.translate(vehicle.x,vehicle.y);ctx.rotate(vehicle.angle);ctx.shadowColor="#6e9f4c";ctx.shadowBlur=9;
+      if(vehicle.level<4){
+        ctx.fillStyle="#172218";fillRounded(-24,-15,48,30,7,"#18251b");ctx.fillStyle=vehicle.level===1?"#668a49":"#789956";fillRounded(-20,-12,40,24,6,ctx.fillStyle,"#b9db8f",2);
+        ctx.fillStyle="#142019";ctx.fillRect(-18,-18,11,5);ctx.fillRect(8,-18,11,5);ctx.fillRect(-18,13,11,5);ctx.fillRect(8,13,11,5);ctx.fillStyle="#bfe4dc";ctx.fillRect(7,-8,10,16);
+        if(vehicle.level>=2){ctx.fillStyle="#3c5435";ctx.beginPath();ctx.arc(-3,0,9,0,TAU);ctx.fill();}
+        if(vehicle.level>=3){ctx.fillStyle="#263927";ctx.beginPath();ctx.arc(0,0,11,0,TAU);ctx.fill();ctx.fillStyle="#d9f3b4";ctx.fillRect(6,-3,28,6);}
+      }else{
+        ctx.fillStyle="#18231a";fillRounded(-31,-20,62,40,9,"#18231a");ctx.fillStyle="#789956";for(const sy of [-16,12])fillRounded(-29,sy,58,8,4,"#789956");
+        ctx.fillStyle="#405b39";fillRounded(-23,-14,45,28,7,"#405b39","#b8db8d",2);ctx.beginPath();ctx.arc(2,0,14,0,TAU);ctx.fill();ctx.fillStyle="#e5f6c8";ctx.fillRect(10,-4,38,8);ctx.fillStyle="#cc9b51";ctx.fillRect(-8,11,13,7);
+      }
+      ctx.restore();
+      const w=vehicle.level===4?60:46,ratio=Math.max(0,vehicle.hp/vehicle.maxHp);fillRounded(vehicle.x-w/2,vehicle.y-31,w,7,4,"rgba(5,10,7,.85)");if(ratio>0)fillRounded(vehicle.x-w/2+2,vehicle.y-29,(w-4)*ratio,3,2,ratio>.45?"#9ad760":"#ff875c");
+    }
+
+    function getTowerType(id) { return TOWER_TYPES.find(t => t.id === id); }
+    function currentTowerCost(type){return Math.round(type.cost*Math.pow(1.18,placedCounts[type.id]||0));}
+    function towerAbility(tower){
+      if(tower.type.levels)return tower.type.levels[tower.level-1];
+      if(tower.type.id==="ice")return tower.level>=3?"Permafrost":"Frostverlangsamung";
+      if(tower.type.id==="rocket")return tower.level>=4?"Doppelsprengkopf":"Flächenrakete";
+      if(tower.type.id==="chrono")return tower.level>=3?"Zeitstillstand":"Zeitfeld";
+      if(tower.type.id==="mortar")return tower.level>=3?"Schwere Granate":"Flächenbeschuss";
+      return tower.level>=4?"Überladung":"Verbesserte Feuerkraft";
+    }
+
+    function applyLevelStats(tower){
+      const l=tower.level,type=tower.type;
+      if(type.id==="helicopter"){
+        const stats=[{d:105,r:225,f:.42,w:"sniper"},{d:24,r:220,f:3.2,w:"ar"},{d:72,r:230,f:1.35,w:"cannon"},{d:22,r:240,f:8.5,w:"minigun"}][l-1];
+        tower.damage=stats.d;tower.range=stats.r;tower.rate=stats.f;tower.weapon=stats.w;
+      }else if(type.id==="airplane"){
+        const stats=[{d:42,r:250,f:1.4,w:"cannon"},{d:88,r:260,f:.7,w:"firebomb"},{d:70,r:270,f:1,w:"cluster"},{d:125,r:285,f:.85,w:"missile"}][l-1];
+        tower.damage=stats.d;tower.range=stats.r;tower.rate=stats.f;tower.weapon=stats.w;
+      }else if(type.id==="military"){
+        const stats=[{r:0,h:180,s:82},{r:0,h:310,s:72},{r:120,h:390,s:67},{r:155,h:680,s:54}][l-1];
+        tower.damage=0;tower.range=stats.r;tower.rate=0;tower.vehicleHp=stats.h;tower.vehicleSpeed=stats.s;
+        if(!Number.isFinite(tower.deployTimer))tower.deployTimer=3;
+      }else{
+        tower.damage=type.damage*Math.pow(1.34,l-1);tower.range=type.range*(1+.075*(l-1));tower.rate=type.rate*Math.pow(1.13,l-1);
+      }
+    }
+
+    function deployVehicle(base,waveStart=false){
+      if(!base||base.type.id!=="military")return;
+      const p=pointAtDistance(totalPathLength-25),level=base.level;
+      vehicles.push({base,level,x:p.x,y:p.y,distance:totalPathLength-25,hp:base.vehicleHp,maxHp:base.vehicleHp,speed:base.vehicleSpeed,range:level>=3?base.range:0,cooldown:.2,bombCooldown:1,dead:false,angle:Math.PI});
+      base.deployTimer=60;
+      burst(p.x,p.y,base.type.color,waveStart?20:12,90);
+    }
+
+    function updateVehicles(dt){
+      for(const vehicle of vehicles){
+        if(vehicle.dead)continue;
+        vehicle.distance-=vehicle.speed*dt;const p=pointAtDistance(vehicle.distance);vehicle.x=p.x;vehicle.y=p.y;
+        const ahead=pointAtDistance(Math.max(0,vehicle.distance-5));vehicle.angle=Math.atan2(ahead.y-vehicle.y,ahead.x-vehicle.x);
+        vehicle.cooldown-=dt;vehicle.bombCooldown-=dt;
+        if(vehicle.level>=3&&vehicle.cooldown<=0){
+          const target=enemies.filter(e=>!e.dead&&Math.hypot(e.x-vehicle.x,e.y-vehicle.y)<=vehicle.range).sort((a,b)=>b.distance-a.distance)[0];
+          if(target){const damage=vehicle.level===4?34:19;damageEnemy(target,damage,"vehicle");effects.push({type:"gun",x:vehicle.x,y:vehicle.y,tx:target.x,ty:target.y,life:.1,maxLife:.1,color:"#dfff9e"});vehicle.cooldown=vehicle.level===4?.25:.42;}
+        }
+        if(vehicle.level===4&&vehicle.bombCooldown<=0){
+          const target=enemies.filter(e=>!e.dead&&Math.hypot(e.x-vehicle.x,e.y-vehicle.y)<=vehicle.range+35).sort((a,b)=>b.distance-a.distance)[0];
+          if(target){effects.push({type:"mortar",x:vehicle.x,y:vehicle.y,tx:target.x,ty:target.y,target,life:.48,maxLife:.48,color:"#9fca6b",damage:105,splash:75});vehicle.bombCooldown=2.8;}
+        }
+        const contacts=enemies.filter(e=>!e.dead&&Math.hypot(e.x-vehicle.x,e.y-vehicle.y)<e.data.radius+(vehicle.level===4?25:18)).sort((a,b)=>b.distance-a.distance);
+        if(contacts.length){const enemy=contacts[0],before=enemy.hp,armor=enemy.data.armor||0;damageEnemy(enemy,vehicle.hp/Math.max(.05,1-armor),"ram");vehicle.hp-=Math.min(before,vehicle.hp);shake=Math.max(shake,4);burst(vehicle.x,vehicle.y,"#ffbc58",14,120);if(vehicle.hp<=0){vehicle.dead=true;effects.push({type:"explosion",x:vehicle.x,y:vehicle.y,life:.38,maxLife:.38,color:"#ff9b45"});}}
+        if(vehicle.distance<=0)vehicle.dead=true;
+      }
+      if(selectedVehicle&&selectedVehicle.dead)selectedVehicle=null;
+    }
+
+    function drawPlacedTower(tower) {
+      const target = tower.target && !tower.target.dead ? tower.target : null;
+      const tx=tower.combatX??tower.x,ty=tower.combatY??tower.y;
+      const angle = target ? Math.atan2(target.y - ty, target.x - tx) : tower.angle;
+      tower.angle = angle;
+      if(selectedPlacedTower===tower){ctx.save();ctx.globalAlpha=.18;ctx.fillStyle=tower.type.color;ctx.beginPath();ctx.arc(tower.x,tower.y,tower.range,0,TAU);ctx.fill();ctx.globalAlpha=.8;ctx.strokeStyle=tower.type.color;ctx.lineWidth=2;ctx.stroke();ctx.restore();}
+      if(tower.type.id==="helicopter"||tower.type.id==="airplane")drawAirPad(tower);
+      drawTowerModel(tower.type, tx, ty, .9, angle,tower.level);
+      for(let i=0;i<tower.level;i++){ctx.fillStyle=i===0?"#fff":tower.type.color;ctx.beginPath();ctx.arc(tower.x-12+(i-1)*8,tower.y+31,3,0,TAU);ctx.fill();}
+    }
+
+    function drawPlacementPreview() {
+      if (!selectedTowerType || mouse.y >= FIELD_H || !mouse.inside) return;
+      const type = getTowerType(selectedTowerType);
+      const valid = isValidPlacement(mouse.x, mouse.y) && gold >= currentTowerCost(type);
+      ctx.save();
+      ctx.globalAlpha = .18;
+      ctx.fillStyle = valid ? type.color : "#ff4355";
+      ctx.beginPath(); ctx.arc(mouse.x, mouse.y, type.range, 0, TAU); ctx.fill();
+      ctx.globalAlpha = .7;
+      ctx.strokeStyle = valid ? type.color : "#ff4355";
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(mouse.x, mouse.y, type.range, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = .72;
+      drawTowerModel(type, mouse.x, mouse.y, .9, -Math.PI / 2);
+      ctx.restore();
+    }
+
+    function distToSegment(px, py, a, b) {
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const l2 = dx * dx + dy * dy;
+      const t = Math.max(0, Math.min(1, ((px - a.x) * dx + (py - a.y) * dy) / l2));
+      return Math.hypot(px - (a.x + t * dx), py - (a.y + t * dy));
+    }
+
+    function isValidPlacement(x, y) {
+      if (x < 35 || x > W - 35 || y < 105 || y > FIELD_H - 35) return false;
+      if (pathSegments.some(seg => distToSegment(x, y, seg.a, seg.b) < pathWidths / 2 + 30)) return false;
+      if (towers.some(t => Math.hypot(x - t.x, y - t.y) < 68)) return false;
+      return true;
+    }
+
+    function resetGame() {
+      towers = [];
+      vehicles = [];
+      enemies = [];
+      effects = [];
+      particles = [];
+      placedCounts = {};
+      hp = 20;
+      gold = MISSIONS[selectedMission].startGold;
+      wave = 0;
+      waveActive = false;
+      waveQueue = [];
+      spawnTimer = 0;
+      spawnedThisWave = 0;
+      nextWaveCountdown = 1.2;
+      gameSpeed = 1;
+      selectedTowerType = null;
+      selectedPlacedTower = null;
+      selectedVehicle = null;
+      toast = { text: "Bereit zur Verteidigung!", time: 2.2, color: "#8fe8ff" };
+    }
+
+    function beginWave() {
+      wave++;
+      waveActive = true;
+      waveQueue = [];
+      const mission=MISSIONS[selectedMission];
+      const normalCount = 6 + wave * 2+Math.max(0,Math.floor((mission.difficulty-1)*5));
+      const fastCount = 1 + Math.max(0, wave - 1) * 2;
+      for (let i = 0; i < normalCount; i++) waveQueue.push("normal");
+      for (let i = 0; i < fastCount; i++) waveQueue.splice(Math.min(waveQueue.length, 2 + i * 3), 0, "fast");
+      if(wave>=2) for(let i=0;i<Math.ceil(wave/2);i++) waveQueue.splice(Math.min(waveQueue.length,4+i*5),0,"armored");
+      if(wave>=3) for(let i=0;i<wave;i++) waveQueue.splice(Math.min(waveQueue.length,3+i*4),0,"phantom");
+      if(wave>=4) for(let i=0;i<Math.floor(wave/3);i++) waveQueue.push("brute");
+      if(wave>=2) for(let i=0;i<wave+1;i++) waveQueue.splice(Math.min(waveQueue.length,1+i*3),0,"swarm");
+      if (wave % 5 === 0) waveQueue.push("boss");
+      for(const tower of towers)if(tower.type.id==="military")deployVehicle(tower,true);
+      spawnTimer = .2;
+      spawnedThisWave = 0;
+      toast = { text: wave % 5 === 0 ? `WELLE ${wave} — BOSS-ALARM!` : `WELLE ${wave}`, time: 2.4, color: wave % 5 === 0 ? "#ff6670" : "#8fe8ff" };
+    }
+
+    function spawnEnemy(kind) {
+      const base = ENEMY_TYPES[kind];
+      const mission=MISSIONS[selectedMission];
+      const hpScale = Math.pow(1.17, wave - 1)*mission.difficulty;
+      const bossScale = kind === "boss" ? 1 + Math.floor(wave / 5 - 1) * .3 : 1;
+      const elite=wave>=4&&spawnedThisWave>0&&spawnedThisWave%7===0;
+      spawnedThisWave++;
+      const maxHp = Math.round(base.hp * hpScale * bossScale*(elite?1.7:1));
+      const p = pointAtDistance(0);
+      enemies.push({
+        kind, data: base, x: p.x, y: p.y, distance: 0,
+        hp: maxHp, maxHp, reward:Math.round(base.reward*(elite?2:1)*(1+wave*.018)),elite,speed: base.speed * (1 + Math.min(.32, wave * .012))*Math.pow(mission.difficulty,.18)*(elite?1.06:1),
+        slow: 0, slowFactor: 1, poison: 0, poisonDps: 0, burn:0, burnDps:0, dead: false, phase: Math.random() * TAU
+      });
+    }
+
+    function updatePlaying(dt) {
+      if (nextWaveCountdown > 0) {
+        nextWaveCountdown -= dt;
+        if (nextWaveCountdown <= 0) beginWave();
+      }
+
+      if (waveActive && waveQueue.length) {
+        spawnTimer -= dt;
+        if (spawnTimer <= 0) {
+          spawnEnemy(waveQueue.shift());
+          spawnTimer = Math.max(.34, .92 - wave * .018);
+        }
+      }
+
+      for (const enemy of enemies) {
+        if (enemy.dead) continue;
+        if (enemy.slow > 0) enemy.slow -= dt;
+        else enemy.slowFactor = 1;
+        if(enemy.poison>0){enemy.poison-=dt;damageEnemy(enemy,enemy.poisonDps*dt,"poison",true);}
+        if(enemy.burn>0){enemy.burn-=dt;damageEnemy(enemy,enemy.burnDps*dt,"fire",true);}
+        enemy.distance += enemy.speed * enemy.slowFactor * dt;
+        const p = pointAtDistance(enemy.distance);
+        enemy.x = p.x; enemy.y = p.y;
+        if (enemy.distance >= totalPathLength) {
+          enemy.dead = true;
+          hp--;
+          shake = 10;
+          burst(enemy.x, enemy.y, "#ff5364", 18, 140);
+          toast = { text: "Der Kern wurde getroffen!", time: 1.4, color: "#ff7180" };
+          if (hp <= 0) {
+            hp = 0;
+            gameState = "GAMEOVER";
+            selectedTowerType = null;
+          }
+        }
+      }
+
+      for (const tower of towers) updateTower(tower, dt);
+      updateVehicles(dt);
+      enemies = enemies.filter(e => !e.dead);
+      vehicles = vehicles.filter(v=>!v.dead);
+
+      if (waveActive && waveQueue.length === 0 && enemies.length === 0) {
+        waveActive = false;
+        nextWaveCountdown = 5;
+        const bonus = 38 + wave * 7;
+        const gemReward = wave%3===0?1:0;
+        gold += bonus;
+        gems += gemReward;
+        bestWave=Math.max(bestWave,wave);
+        if(wave>=MISSIONS[selectedMission].waves){
+          gems+=5;
+          if(!completedMissions.includes(selectedMission))completedMissions.push(selectedMission);
+          saveProgress();gameState="VICTORY";selectedTowerType=null;selectedPlacedTower=null;selectedVehicle=null;
+          toast={text:"",time:0,color:"#fff"};updateEffects(dt);return;
+        }
+        saveProgress();
+        toast = { text: `Welle geschafft! +${bonus} Gold${gemReward?"  +1 Gem":""}`, time: 3, color: gemReward?"#e7b8ff":"#ffd45b" };
+      }
+
+      updateEffects(dt);
+      if (toast.time > 0) toast.time -= dt;
+      shake = Math.max(0, shake - 30 * dt);
+    }
+
+    function updateTower(tower, dt) {
+      if(tower.type.id==="military"){
+        tower.deployTimer-=dt;if(tower.deployTimer<=0)deployVehicle(tower,false);return;
+      }
+      if(tower.type.id==="helicopter"||tower.type.id==="airplane"){
+        tower.orbit+=dt*(tower.type.id==="helicopter"?.72:1.05);
+        const radius=tower.type.id==="helicopter"?52:78;
+        tower.combatX=tower.x+Math.cos(tower.orbit)*radius;
+        tower.combatY=tower.y+Math.sin(tower.orbit)*(tower.type.id==="helicopter"?30:44);
+      }else{tower.combatX=tower.x;tower.combatY=tower.y;}
+      tower.cooldown -= dt;
+      if (tower.target && (tower.target.dead || Math.hypot(tower.target.x - tower.combatX, tower.target.y - tower.combatY) > tower.range)) tower.target = null;
+      if (!tower.target) {
+        let best = null;
+        for (const enemy of enemies) {
+          if (!enemy.dead && Math.hypot(enemy.x - tower.combatX, enemy.y - tower.combatY) <= tower.range && (!best || enemy.distance > best.distance)) best = enemy;
+        }
+        tower.target = best;
+      }
+      if (tower.target) tower.angle = Math.atan2(tower.target.y - tower.y, tower.target.x - tower.x);
+      if (tower.target && tower.cooldown <= 0) {
+        fireTower(tower, tower.target);
+        tower.cooldown = 1 / tower.rate;
+      }
+    }
+
+    function fireTower(tower, target) {
+      const type = tower.type;
+      const ox=tower.combatX??tower.x,oy=tower.combatY??tower.y;
+      if (type.id === "rocket") {
+        effects.push({ type: "rocket", x: ox, y: oy, tx: target.x, ty: target.y, target, life: .42, maxLife: .42, color: type.color, damage: tower.damage, splash:type.splash+(tower.level-1)*5 });
+        if(tower.level>=4)effects.push({type:"rocket",x:ox,y:oy,tx:target.x+12,ty:target.y-8,target,life:.5,maxLife:.5,color:type.color,damage:tower.damage*.58,splash:type.splash});
+      } else if(type.id==="mortar"){
+        effects.push({type:"mortar",x:ox,y:oy,tx:target.x,ty:target.y,target,life:.62,maxLife:.62,color:type.color,damage:tower.damage,splash:type.splash+(tower.level-1)*10});
+      } else if(type.id==="chrono"){
+        for(const enemy of enemies)if(!enemy.dead&&Math.hypot(enemy.x-target.x,enemy.y-target.y)<82+tower.level*7){enemy.slow=Math.max(enemy.slow,1.8+tower.level*.35);enemy.slowFactor=Math.min(enemy.slowFactor,.52-tower.level*.06);damageEnemy(enemy,tower.damage,"chrono");}
+        effects.push({type:"chrono",x:target.x,y:target.y,life:.55,maxLife:.55,color:type.color});
+      } else if(type.id==="helicopter"){
+        const effect=tower.weapon==="sniper"?"sniper":"gun";
+        if(tower.weapon==="cannon"){
+          for(const enemy of enemies)if(!enemy.dead&&Math.hypot(enemy.x-target.x,enemy.y-target.y)<48)damageEnemy(enemy,tower.damage,"helicopter");
+          effects.push({type:"cannon",x:ox,y:oy,tx:target.x,ty:target.y,life:.18,maxLife:.18,color:type.color});
+          effects.push({type:"explosion",x:target.x,y:target.y,life:.28,maxLife:.28,color:type.color});
+        }else{damageEnemy(target,tower.damage,"helicopter");effects.push({type:effect,x:ox,y:oy,tx:target.x,ty:target.y,life:.1,maxLife:.1,color:type.color});}
+      } else if(type.id==="airplane"){
+        if(tower.weapon==="cannon"){damageEnemy(target,tower.damage,"airplane");effects.push({type:"gun",x:ox,y:oy,tx:target.x,ty:target.y,life:.1,maxLife:.1,color:type.color});}
+        else effects.push({type:tower.weapon==="missile"?"rocket":"airbomb",x:ox,y:oy,tx:target.x,ty:target.y,target,life:.5,maxLife:.5,color:type.color,damage:tower.damage,splash:tower.weapon==="cluster"?105:72,burn:tower.weapon==="firebomb"});
+      } else if(type.id==="sun"){
+        for(const enemy of enemies)if(!enemy.dead&&Math.hypot(enemy.x-ox,enemy.y-oy)<=tower.range)damageEnemy(enemy,tower.damage,"sun");
+        effects.push({type:"nova",x:ox,y:oy,life:.45,maxLife:.45,color:type.color});
+      } else {
+        damageEnemy(target, tower.damage, type.id);
+        effects.push({ type: type.id, x: ox, y: oy, tx: target.x, ty: target.y, life: type.id === "tesla" ? .2 : .13, maxLife: type.id === "tesla" ? .2 : .13, color: type.color });
+        if (type.id === "ice" && !target.dead) {
+          target.slow = 2.3;
+          target.slowFactor = .55;
+        }
+        if(type.id==="poison"&&!target.dead){target.poison=Math.max(target.poison,3.5);target.poisonDps=Math.max(target.poisonDps,tower.damage*1.2);}
+        if (type.id === "tesla") {
+          let from = target;
+          const hit = new Set([target]);
+          for (let jump = 0; jump < 2; jump++) {
+            const next = enemies.filter(e => !e.dead && !hit.has(e) && Math.hypot(e.x - from.x, e.y - from.y) < 105).sort((a,b) => b.distance - a.distance)[0];
+            if (!next) break;
+            damageEnemy(next, Math.round(tower.damage * (.64 - jump * .14)), "tesla");
+            effects.push({ type: "tesla", x: from.x, y: from.y, tx: next.x, ty: next.y, life: .2, maxLife: .2, color: type.color });
+            hit.add(next); from = next;
+          }
+        }
+      }
+    }
+
+    function damageEnemy(enemy, amount, source, quiet=false) {
+      if (!enemy || enemy.dead) return;
+      const armor=enemy.data.armor||0;
+      enemy.hp -= amount*(1-armor);
+      if(!quiet)burst(enemy.x, enemy.y, source === "ice" ? "#9ff3ff" : source === "tesla" ? "#bd9cff" : source === "poison"?"#7fed63":"#ffd36a", source === "rocket" ? 15 : 4, source === "rocket" ? 100 : 55);
+      if (enemy.hp <= 0) {
+        enemy.dead = true;
+        gold += enemy.reward;
+        burst(enemy.x, enemy.y, enemy.data.color, enemy.kind === "boss" ? 42 : 18, enemy.kind === "boss" ? 180 : 110);
+        effects.push({ type: "reward", x: enemy.x, y: enemy.y - enemy.data.radius, value: enemy.reward, life: 1, maxLife: 1 });
+        if (enemy.kind === "boss") shake = 14;
+      }
+    }
+
+    function updateEffects(dt) {
+      for (const effect of effects) {
+        effect.life -= dt;
+        if (["rocket","mortar","airbomb"].includes(effect.type) && effect.life <= 0 && !effect.exploded) {
+          effect.exploded = true;
+          const impact = effect.target && !effect.target.dead ? effect.target : { x: effect.tx, y: effect.ty };
+          effect.tx = impact.x; effect.ty = impact.y;
+          for (const enemy of enemies) {
+            const d = Math.hypot(enemy.x - impact.x, enemy.y - impact.y);
+            if (!enemy.dead && d <= effect.splash) {
+              damageEnemy(enemy, Math.round(effect.damage * Math.max(.35,1-d/(effect.splash*1.7))), effect.type);
+              if(effect.burn&&!enemy.dead){enemy.burn=Math.max(enemy.burn,3);enemy.burnDps=Math.max(enemy.burnDps,effect.damage*.22);}
+            }
+          }
+          burst(impact.x, impact.y, "#ff7a3d", 30, 170);
+          effects.push({ type: "explosion", x: impact.x, y: impact.y, life: .42, maxLife: .42, color: effect.color||"#ff7a3d" });
+          shake = Math.max(shake, 5);
+        }
+      }
+      effects = effects.filter(e => e.life > 0 || (["rocket","mortar","airbomb"].includes(e.type) && !e.exploded));
+      for (const p of particles) {
+        p.life -= dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .97; p.vy *= .97;
+      }
+      particles = particles.filter(p => p.life > 0);
+    }
+
+    function burst(x, y, color, count, speed) {
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * TAU;
+        const s = speed * (.3 + Math.random() * .7);
+        particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: .25 + Math.random() * .5, maxLife: .75, size: 2 + Math.random() * 4, color });
+      }
+    }
+
+    function drawEnemy(enemy) {
+      const r = enemy.data.radius;
+      ctx.save();
+      ctx.translate(enemy.x, enemy.y + Math.sin(elapsed * 5 + enemy.phase) * 2);
+      if(enemy.elite){ctx.globalAlpha=.23+Math.sin(elapsed*6+enemy.phase)*.08;ctx.fillStyle="#ffd35a";ctx.beginPath();ctx.arc(0,0,r+13,0,TAU);ctx.fill();ctx.globalAlpha=1;ctx.strokeStyle="#ffe784";ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,r+8,0,TAU);ctx.stroke();}
+      if (enemy.slowFactor < 1) {
+        ctx.strokeStyle = "rgba(117,230,255,.6)"; ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.arc(0, 0, r + 6, -elapsed * 2, Math.PI - elapsed * 2); ctx.stroke();
+      }
+      if(enemy.poison>0){ctx.strokeStyle="rgba(112,244,83,.7)";ctx.lineWidth=2;ctx.setLineDash([4,6]);ctx.beginPath();ctx.arc(0,0,r+9,elapsed,elapsed+Math.PI*1.6);ctx.stroke();ctx.setLineDash([]);}
+      if(enemy.burn>0){ctx.fillStyle="rgba(255,126,49,.55)";for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(-8+i*8,-r-4-Math.sin(elapsed*8+i)*4,3+i,0,TAU);ctx.fill();}}
+      if (enemy.kind === "normal") drawNormalMonster(r);
+      else if (enemy.kind === "fast") drawFastMonster(r);
+      else if(enemy.kind==="armored")drawArmoredMonster(r);
+      else if(enemy.kind==="phantom")drawPhantomMonster(r);
+      else if(enemy.kind==="brute")drawBruteMonster(r);
+      else if(enemy.kind==="swarm")drawSwarmMonster(r);
+      else drawBossMonster(r);
+      ctx.restore();
+      drawEnemyHealth(enemy);
+    }
+
+    function drawNormalMonster(r) {
+      ctx.shadowColor = "#55d65d"; ctx.shadowBlur = 10;
+      ctx.fillStyle = "#34523b"; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#6bd563"; ctx.beginPath(); ctx.arc(0, 2, r - 6, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#263a32"; ctx.fillRect(-r, -8, r * 2, 8); ctx.fillRect(-5, -r, 10, r * 2);
+      ctx.strokeStyle = "#a6f28a"; ctx.lineWidth = 2; ctx.strokeRect(-r + 3, -7, r * 2 - 6, 6);
+      ctx.fillStyle = "#ffed8d"; ctx.beginPath(); ctx.arc(-7, 4, 3, 0, TAU); ctx.arc(7, 4, 3, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#173123"; ctx.fillRect(-8, 12, 16, 3);
+    }
+
+    function drawFastMonster(r) {
+      ctx.shadowColor = "#ffe04c"; ctx.shadowBlur = 15;
+      ctx.fillStyle = "#cf9823"; ctx.beginPath(); ctx.moveTo(r + 8,0); ctx.lineTo(-r, -r + 3); ctx.lineTo(-r + 5, r); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#ffdf45"; ctx.beginPath(); ctx.moveTo(r,0); ctx.lineTo(-r + 5, -r + 7); ctx.lineTo(-r + 9, r - 6); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#fff6a0"; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.moveTo(-4,-r-9); ctx.lineTo(4,-r+1); ctx.lineTo(-1,4); ctx.lineTo(10,13); ctx.stroke();
+      ctx.fillStyle = "#342b12"; ctx.beginPath(); ctx.arc(5, -4, 3, 0, TAU); ctx.fill();
+    }
+
+    function drawArmoredMonster(r){
+      ctx.shadowColor="#729bd0";ctx.shadowBlur=12;ctx.fillStyle="#26384a";ctx.beginPath();ctx.arc(0,0,r,0,TAU);ctx.fill();
+      ctx.fillStyle="#7190ae";for(let i=0;i<6;i++){ctx.rotate(TAU/6);ctx.beginPath();ctx.moveTo(4,-10);ctx.lineTo(r+4,-7);ctx.lineTo(r+9,0);ctx.lineTo(r+4,7);ctx.lineTo(4,10);ctx.closePath();ctx.fill();}
+      ctx.fillStyle="#172431";ctx.beginPath();ctx.arc(0,0,13,0,TAU);ctx.fill();ctx.strokeStyle="#b7d5ef";ctx.lineWidth=3;ctx.stroke();ctx.fillStyle="#ff9d4d";ctx.fillRect(-8,-3,16,6);
+    }
+
+    function drawPhantomMonster(r){
+      ctx.globalAlpha=.35;ctx.fillStyle="#68fff0";ctx.beginPath();ctx.arc(0,0,r+8,0,TAU);ctx.fill();ctx.globalAlpha=.85;
+      ctx.fillStyle="#37bdb9";ctx.beginPath();ctx.moveTo(0,-r);ctx.bezierCurveTo(r,-r,r,r*.45,r*.55,r*.55);ctx.lineTo(r*.2,r);ctx.lineTo(0,r*.58);ctx.lineTo(-r*.25,r);ctx.lineTo(-r*.6,r*.5);ctx.bezierCurveTo(-r,-r*.1,-r,-r,0,-r);ctx.fill();
+      ctx.fillStyle="#eaffff";ctx.beginPath();ctx.arc(-7,-3,4,0,TAU);ctx.arc(7,-3,4,0,TAU);ctx.fill();
+    }
+
+    function drawBruteMonster(r){
+      ctx.shadowColor="#d17d42";ctx.shadowBlur=10;ctx.fillStyle="#5a3326";ctx.beginPath();ctx.arc(0,0,r,0,TAU);ctx.fill();ctx.fillStyle="#b86e40";
+      for(let i=0;i<7;i++){const a=i*TAU/7;ctx.beginPath();ctx.arc(Math.cos(a)*r*.6,Math.sin(a)*r*.6,9,0,TAU);ctx.fill();}
+      ctx.fillStyle="#291915";ctx.beginPath();ctx.arc(0,2,17,0,TAU);ctx.fill();ctx.fillStyle="#ffdc63";ctx.beginPath();ctx.arc(-7,-3,3,0,TAU);ctx.arc(7,-3,3,0,TAU);ctx.fill();
+    }
+
+    function drawSwarmMonster(r){
+      ctx.shadowColor="#ff75d4";ctx.shadowBlur=15;ctx.fillStyle="#d44da9";ctx.beginPath();
+      for(let i=0;i<8;i++){const a=i*TAU/8,rr=i%2?r*.55:r;const x=Math.cos(a)*rr,y=Math.sin(a)*rr;i?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.closePath();ctx.fill();
+      ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(4,-2,4,0,TAU);ctx.fill();ctx.fillStyle="#451039";ctx.beginPath();ctx.arc(5,-2,2,0,TAU);ctx.fill();
+    }
+
+    function drawBossMonster(r) {
+      ctx.globalAlpha = .18 + Math.sin(elapsed * 5) * .08;
+      ctx.fillStyle = "#ff2e3e"; ctx.beginPath(); ctx.arc(0, 0, r + 13, 0, TAU); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.shadowColor = "#ff263d"; ctx.shadowBlur = 22;
+      ctx.fillStyle = "#631e29"; ctx.beginPath(); ctx.arc(0, 0, r, 0, TAU); ctx.fill();
+      ctx.strokeStyle = "#ff6363"; ctx.lineWidth = 5; ctx.stroke();
+      ctx.fillStyle = "#aa2934"; ctx.beginPath(); ctx.arc(0, 3, r - 9, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#43141c";
+      for (let i = 0; i < 8; i++) { ctx.rotate(TAU / 8); ctx.beginPath(); ctx.moveTo(r - 5, -7); ctx.lineTo(r + 15, 0); ctx.lineTo(r - 5, 7); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = "#fff0a5"; ctx.beginPath(); ctx.moveTo(-18,-8); ctx.lineTo(-4,-3); ctx.lineTo(-17,3); ctx.closePath(); ctx.fill(); ctx.beginPath(); ctx.moveTo(18,-8); ctx.lineTo(4,-3); ctx.lineTo(17,3); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = "#210b10"; ctx.fillRect(-16, 12, 32, 7);
+      ctx.fillStyle = "#fff"; for (let x = -12; x <= 8; x += 10) { ctx.beginPath(); ctx.moveTo(x,12); ctx.lineTo(x+5,20); ctx.lineTo(x+9,12); ctx.fill(); }
+    }
+
+    function drawEnemyHealth(enemy) {
+      const w = enemy.kind === "boss" ? 82 : 48;
+      const y = enemy.y - enemy.data.radius - 16;
+      fillRounded(enemy.x - w / 2, y, w, 8, 4, "rgba(8,14,18,.85)");
+      const ratio = Math.max(0, enemy.hp / enemy.maxHp);
+      if (ratio > 0) fillRounded(enemy.x - w / 2 + 2, y + 2, (w - 4) * ratio, 4, 2, ratio > .5 ? "#5fe066" : ratio > .22 ? "#ffd34d" : "#ff4d5d");
+    }
+
+    function drawEffects() {
+      for (const e of effects) {
+        const alpha = Math.max(0, e.life / e.maxLife);
+        ctx.save(); ctx.globalAlpha = alpha;
+        if (e.type === "gun") {
+          ctx.strokeStyle = "#fff2a4"; ctx.lineWidth = 4;
+          ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.tx, e.ty); ctx.stroke();
+        } else if (e.type === "laser") {
+          ctx.shadowColor = e.color; ctx.shadowBlur = 18; ctx.strokeStyle = e.color; ctx.lineWidth = 7;
+          ctx.beginPath(); ctx.moveTo(e.x, e.y); ctx.lineTo(e.tx, e.ty); ctx.stroke();
+          ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+        } else if(e.type==="plasma"){
+          ctx.shadowColor=e.color;ctx.shadowBlur=24;ctx.strokeStyle=e.color;ctx.lineWidth=10;ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.tx,e.ty);ctx.stroke();ctx.strokeStyle="#fff";ctx.lineWidth=3;ctx.stroke();
+        } else if(e.type==="sniper"){
+          ctx.strokeStyle=e.color;ctx.lineWidth=3;ctx.setLineDash([16,5]);ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.tx,e.ty);ctx.stroke();ctx.setLineDash([]);
+        } else if(e.type==="cannon"){
+          ctx.shadowColor="#eaffc9";ctx.shadowBlur=20;ctx.strokeStyle="#eaffc9";ctx.lineWidth=7;ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.tx,e.ty);ctx.stroke();ctx.strokeStyle=e.color;ctx.lineWidth=3;ctx.stroke();
+        } else if(e.type==="poison"){
+          ctx.strokeStyle=e.color;ctx.lineWidth=5;ctx.setLineDash([3,9]);ctx.lineDashOffset=-elapsed*60;ctx.beginPath();ctx.moveTo(e.x,e.y);ctx.lineTo(e.tx,e.ty);ctx.stroke();ctx.setLineDash([]);
+        } else if (e.type === "ice") {
+          ctx.strokeStyle = e.color; ctx.lineWidth = 5; ctx.setLineDash([8, 8]);
+          ctx.lineDashOffset = -elapsed * 80; ctx.beginPath(); ctx.moveTo(e.x,e.y); ctx.lineTo(e.tx,e.ty); ctx.stroke();
+        } else if (e.type === "tesla") {
+          drawLightning(e.x, e.y, e.tx, e.ty, e.color);
+        } else if (["rocket","mortar","airbomb"].includes(e.type)) {
+          const t = 1 - Math.max(0, e.life / e.maxLife);
+          const x = e.x + (e.tx - e.x) * t;
+          const arc=e.type==="mortar"?95:e.type==="airbomb"?55:35;
+          const y = e.y + (e.ty - e.y) * t - Math.sin(t * Math.PI) * arc;
+          ctx.strokeStyle = "rgba(220,230,230,.5)"; ctx.lineWidth = 8;
+          ctx.beginPath(); ctx.moveTo(e.x + (e.tx-e.x)*Math.max(0,t-.12), e.y + (e.ty-e.y)*Math.max(0,t-.12)); ctx.lineTo(x,y); ctx.stroke();
+          ctx.fillStyle = e.color||"#ffb54a"; ctx.shadowColor = e.color||"#ff5b32"; ctx.shadowBlur = 15; ctx.beginPath(); ctx.arc(x,y,e.type==="mortar"?11:8,0,TAU); ctx.fill();
+        } else if (e.type === "explosion") {
+          const t = 1 - alpha;
+          ctx.strokeStyle = e.color; ctx.lineWidth = 12 * alpha;
+          ctx.beginPath(); ctx.arc(e.x,e.y,10 + t * 75,0,TAU); ctx.stroke();
+          ctx.fillStyle = "rgba(255,215,90,.25)"; ctx.beginPath(); ctx.arc(e.x,e.y,8 + t*55,0,TAU); ctx.fill();
+        } else if(e.type==="nova"){
+          const t=1-alpha;ctx.shadowColor=e.color;ctx.shadowBlur=25;ctx.strokeStyle=e.color;ctx.lineWidth=14*alpha;ctx.beginPath();ctx.arc(e.x,e.y,20+t*155,0,TAU);ctx.stroke();
+        } else if(e.type==="chrono"){
+          const t=1-alpha;ctx.strokeStyle=e.color;ctx.lineWidth=7*alpha;ctx.setLineDash([10,8]);ctx.lineDashOffset=-elapsed*40;ctx.beginPath();ctx.arc(e.x,e.y,15+t*95,0,TAU);ctx.stroke();ctx.setLineDash([]);
+        } else if (e.type === "reward") {
+          text(`+${e.value}`, e.x, e.y - (1-alpha)*35, 17, "#ffd45a", "center", 950);
+        }
+        ctx.restore();
+      }
+      for (const p of particles) {
+        ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+        ctx.fillStyle = p.color;
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.size,0,TAU); ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawLightning(x1, y1, x2, y2, color) {
+      const dx = x2-x1, dy = y2-y1, len = Math.hypot(dx,dy);
+      const nx = -dy/len, ny = dx/len;
+      ctx.shadowColor = color; ctx.shadowBlur = 15; ctx.strokeStyle = color; ctx.lineWidth = 5;
+      ctx.beginPath(); ctx.moveTo(x1,y1);
+      const steps = Math.max(3, Math.floor(len/22));
+      for (let i=1;i<steps;i++) { const t=i/steps; const jitter=(Math.random()-.5)*18; ctx.lineTo(x1+dx*t+nx*jitter,y1+dy*t+ny*jitter); }
+      ctx.lineTo(x2,y2); ctx.stroke();
+      ctx.strokeStyle="#fff"; ctx.lineWidth=1.5; ctx.stroke();
+    }
+
+    function drawPlaying() {
+      ctx.save();
+      if (shake > 0) ctx.translate((Math.random()-.5)*shake, (Math.random()-.5)*shake);
+      drawField();
+      for (const tower of towers) drawPlacedTower(tower);
+      for (const enemy of enemies) drawEnemy(enemy);
+      for(const vehicle of vehicles)drawVehicle(vehicle);
+      drawEffects();
+      drawPlacementPreview();
+      drawHud();
+      drawHotbar();
+      if (toast.time > 0) {
+        const alpha = Math.min(1, toast.time * 2);
+        ctx.globalAlpha = alpha;
+        fillRounded(W/2-245, 92, 490, 54, 14, "rgba(5,14,22,.86)", toast.color, 2);
+        text(toast.text, W/2, 119, 22, toast.color, "center", 900);
+        ctx.globalAlpha = 1;
+      }
+      ctx.restore();
+    }
+
+    function drawGameOver(dt) {
+      drawBackdrop();
+      drawMotes(dt);
+      ctx.fillStyle = "rgba(54,5,13,.32)"; ctx.fillRect(0,0,W,H);
+      ctx.save(); ctx.translate(W/2, 205); ctx.rotate(Math.sin(elapsed*1.2)*.01);
+      ctx.shadowColor = "#ff3e55"; ctx.shadowBlur = 35;
+      text("GAME OVER", 0, 0, 76, "#ff5a6d", "center", 950); ctx.restore();
+      text("Der Energiekern ist gefallen", W/2, 285, 25, "#afc3cc", "center", 650);
+      fillRounded(390, 345, 500, 145, 20, "rgba(8,20,29,.9)", "rgba(255,94,112,.35)", 2);
+      text("ERREICHTE WELLE", W/2, 385, 18, "#829ba7", "center", 800);
+      text(`${wave}`, W/2, 442, 52, "#ffd25a", "center", 950);
+      text(`BESTWELLE  ${bestWave}`,W/2,482,16,"#94b0bd","center",800);
+      button({x:430,y:560,w:420,h:88}, "ERNEUT VERSUCHEN", "#b72f48", true, "Zurück zum Hauptmenü");
+    }
+
+    function drawVictory(dt){
+      drawBackdrop();drawMotes(dt);ctx.fillStyle="rgba(20,55,36,.28)";ctx.fillRect(0,0,W,H);
+      ctx.save();ctx.shadowColor="#78ffae";ctx.shadowBlur=40;text("MISSION GESCHAFFT",W/2,155,62,"#8fffc0","center",950);ctx.restore();
+      text(MISSIONS[selectedMission].name,W/2,225,28,MISSIONS[selectedMission].color,"center",900);
+      fillRounded(385,285,510,190,22,"rgba(7,24,27,.92)","rgba(133,255,183,.45)",3);
+      text(`${MISSIONS[selectedMission].waves} WELLEN VERTEIDIGT`,W/2,330,20,"#b9d9d0","center",800);
+      drawGem(W/2-58,392,25);text("+5",W/2-18,393,42,"#e8c5ff","left",950);
+      text("SIEGESBONUS",W/2,446,15,"#799c91","center",850);
+      button({x:430,y:535,w:420,h:82},"WEITERE MISSION","#289b68",true,"Fortschritt wurde gespeichert");
+      button({x:480,y:650,w:320,h:62},"HAUPTMENÜ","#275a73",true);
+    }
+
+    function handlePointerDown(x, y, buttonId = 0) {
+      if (buttonId === 2) { selectedTowerType = null; selectedPlacedTower=null;selectedVehicle=null; return; }
+      if (gameState === "MENU") {
+        if (insideRect(x,y,{x:430,y:500,w:420,h:78})) gameState = "MAPSELECT";
+        else if(insideRect(x,y,{x:480,y:602,w:320,h:68}))gameState="SHOP";
+      } else if(gameState==="MAPSELECT"){
+        if(insideRect(x,y,{x:25,y:20,w:180,h:50})){gameState="MENU";return;}
+        MISSIONS.forEach((mission,i)=>{if(isMissionUnlocked(i)&&insideRect(x,y,missionCard(i))){selectedMission=i;setMap(mission.map);selectedLoadout=[];loadoutPage=0;gameState="LOADOUT";}});
+      } else if(gameState==="SHOP"){
+        if(insideRect(x,y,{x:25,y:20,w:180,h:50})){gameState="MENU";return;}
+        const premium=TOWER_TYPES.filter(t=>t.unlock),pages=Math.ceil(premium.length/4);
+        if(y>700&&x>420&&x<540&&shopPage>0){shopPage--;return;}
+        if(y>700&&x>750&&x<860&&shopPage<pages-1){shopPage++;return;}
+        premium.slice(shopPage*4,shopPage*4+4).forEach((tower,i)=>{if(insideRect(x,y,shopCard(i))&&!unlockedTowers.includes(tower.id)){
+          if(gems>=tower.unlock){gems-=tower.unlock;unlockedTowers.push(tower.id);saveProgress();burst(mouse.x,mouse.y,tower.color,28,130);toast={text:`${tower.name} freigeschaltet!`,time:2.2,color:tower.accent};}
+          else toast={text:`Dir fehlen ${tower.unlock-gems} Gems`,time:1.7,color:"#ff8ca0"};
+        }});
+      } else if (gameState === "LOADOUT") {
+        if (insideRect(x,y,{x:25,y:20,w:145,h:50})) { gameState = "MAPSELECT"; selectedLoadout = []; return; }
+        const available=TOWER_TYPES.filter(t=>unlockedTowers.includes(t.id));const pages=Math.ceil(available.length/5);
+        if(x<48&&y>330&&y<500&&loadoutPage>0){loadoutPage--;return;}
+        if(x>1232&&y>330&&y<500&&loadoutPage<pages-1){loadoutPage++;return;}
+        const pageTowers=available.slice(loadoutPage*5,loadoutPage*5+5);
+        for (let i=0;i<pageTowers.length;i++) {
+          if (insideRect(x,y,loadoutCard(i))) {
+            const id=pageTowers[i].id;
+            if (selectedLoadout.includes(id)) selectedLoadout=selectedLoadout.filter(v=>v!==id);
+            else if (selectedLoadout.length<3) selectedLoadout.push(id);
+            else toast={text:"Es sind bereits 3 Türme gewählt",time:1.5,color:"#ffca5d"};
+            return;
+          }
+        }
+        if (selectedLoadout.length===3 && insideRect(x,y,{x:430,y:670,w:420,h:82})) { resetGame(); gameState="PLAYING"; }
+      } else if (gameState === "PLAYING") {
+        for(let i=0;i<4;i++)if(insideRect(x,y,speedButtonRect(i))){gameSpeed=[1,2,3,5][i];toast={text:`Spieltempo ${gameSpeed}×`,time:1,color:"#8fe8ff"};return;}
+        if(selectedPlacedTower&&insideRect(x,y,upgradeButtonRect())){
+          const cost=upgradeCost(selectedPlacedTower);
+          if(selectedPlacedTower.level>=4)return;
+          if(gold<cost){toast={text:"Nicht genug Gold für das Upgrade",time:1.5,color:"#ff7180"};return;}
+          gold-=cost;selectedPlacedTower.level++;applyLevelStats(selectedPlacedTower);
+          burst(selectedPlacedTower.x,selectedPlacedTower.y,selectedPlacedTower.type.color,26,125);toast={text:`Upgrade auf Level ${selectedPlacedTower.level}!`,time:1.5,color:selectedPlacedTower.type.accent};return;
+        }
+        for (let i=0;i<selectedLoadout.length;i++) {
+          if (insideRect(x,y,hotbarRect(i))) {
+            const id=selectedLoadout[i];
+            selectedTowerType=selectedTowerType===id?null:id;
+            selectedPlacedTower=null;
+            selectedVehicle=null;
+            return;
+          }
+        }
+        const clickedVehicle=[...vehicles].reverse().find(v=>Math.hypot(x-v.x,y-v.y)<=32);
+        if(clickedVehicle){selectedVehicle=clickedVehicle;selectedPlacedTower=null;selectedTowerType=null;return;}
+        const clickedTower=[...towers].reverse().find(t=>Math.hypot(x-t.x,y-t.y)<=35);
+        if(clickedTower){selectedPlacedTower=clickedTower;selectedVehicle=null;selectedTowerType=null;return;}
+        if (selectedTowerType && y<FIELD_H) {
+          const type=getTowerType(selectedTowerType);
+          const price=currentTowerCost(type);
+          if (gold<price) { toast={text:"Nicht genug Gold",time:1.4,color:"#ff6d76"}; return; }
+          if (!isValidPlacement(x,y)) { toast={text:"Hier kann kein Turm stehen",time:1.4,color:"#ff6d76"}; return; }
+          gold-=price;
+          placedCounts[type.id]=(placedCounts[type.id]||0)+1;
+          const built={x,y,type,level:1,purchaseCost:price,damage:type.damage,range:type.range,rate:type.rate,cooldown:.15,target:null,angle:-Math.PI/2,orbit:Math.random()*TAU,combatX:x,combatY:y};
+          applyLevelStats(built);towers.push(built);
+          burst(x,y,type.color,14,80);
+          toast={text:`${type.short} platziert`,time:1.1,color:type.accent};
+        } else if(y<FIELD_H){selectedPlacedTower=null;selectedVehicle=null;}
+      } else if (gameState === "GAMEOVER") {
+        if (insideRect(x,y,{x:430,y:560,w:420,h:88})) {
+          selectedLoadout=[]; selectedTowerType=null; selectedPlacedTower=null;selectedVehicle=null;towers=[];vehicles=[]; enemies=[]; effects=[]; particles=[]; hp=20; gold=350; wave=0; gameState="MENU";
+        }
+      } else if(gameState==="VICTORY"){
+        if(insideRect(x,y,{x:430,y:535,w:420,h:82})){selectedLoadout=[];gameState="MAPSELECT";}
+        else if(insideRect(x,y,{x:480,y:650,w:320,h:62})){selectedLoadout=[];gameState="MENU";}
+      }
+    }
+
+    function canvasPoint(event) {
+      const rect=canvas.getBoundingClientRect();
+      return {x:(event.clientX-rect.left)*W/rect.width,y:(event.clientY-rect.top)*H/rect.height};
+    }
+
+    canvas.addEventListener("pointermove", event => { const p=canvasPoint(event); mouse={x:p.x,y:p.y,inside:true}; });
+    canvas.addEventListener("pointerleave", () => { mouse.inside=false; });
+    canvas.addEventListener("pointerdown", event => { event.preventDefault(); const p=canvasPoint(event); mouse={x:p.x,y:p.y,inside:true}; handlePointerDown(p.x,p.y,event.button); });
+    canvas.addEventListener("contextmenu", event => event.preventDefault());
+    window.addEventListener("keydown", event => {
+      if (event.key === "Escape") {selectedTowerType=null;selectedPlacedTower=null;selectedVehicle=null;}
+      if (gameState === "PLAYING" && ["1","2","3"].includes(event.key)) selectedTowerType=selectedLoadout[Number(event.key)-1] || null;
+      if(gameState==="PLAYING"&&event.code==="Space"){event.preventDefault();const speeds=[1,2,3,5],index=speeds.indexOf(gameSpeed);gameSpeed=speeds[(index+1)%speeds.length];toast={text:`Spieltempo ${gameSpeed}×`,time:1,color:"#8fe8ff"};}
+    });
+
+    function frame(now) {
+      const dt=Math.min(.033,(now-lastTime)/1000||0); lastTime=now;elapsed+=dt*(gameState==="PLAYING"?gameSpeed:1);
+      if (gameState==="PLAYING") {let simulationTime=dt*gameSpeed;while(simulationTime>0&&gameState==="PLAYING"){const step=Math.min(.033,simulationTime);updatePlaying(step);simulationTime-=step;}}
+      else if(toast.time>0)toast.time-=dt;
+      if (gameState==="MENU") drawMenu(dt);
+      else if(gameState==="MAPSELECT")drawMapSelect();
+      else if(gameState==="SHOP")drawShop();
+      else if (gameState==="LOADOUT") drawLoadout();
+      else if (gameState==="PLAYING") drawPlaying();
+      else if (gameState==="GAMEOVER") drawGameOver(dt);
+      else if(gameState==="VICTORY")drawVictory(dt);
+      requestAnimationFrame(frame);
+    }
+
+    loadProgress();
+    initMotes();
+    requestAnimationFrame(frame);
+  </script>
+</body>
+</html>
