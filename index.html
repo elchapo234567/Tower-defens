@@ -78,6 +78,10 @@
     let gems = 0;
     let bestWave = 0;
     let completedMissions = [];
+    let redeemedCodes = [];
+    let codeInput = "";
+    let codeMessage = "";
+    let codeMessageColor = "#8faab7";
     let unlockedTowers = ["gun", "laser", "ice", "rocket", "tesla"];
 
     const MAPS = [
@@ -214,13 +218,14 @@
           gems = Math.max(0, Math.floor(saved.gems));
           bestWave = Math.max(0, Math.floor(saved.bestWave||0));
           completedMissions=Array.isArray(saved.completedMissions)?saved.completedMissions.filter(n=>Number.isInteger(n)&&n>=0&&n<MISSIONS.length):[];
+          redeemedCodes=Array.isArray(saved.redeemedCodes)?saved.redeemedCodes.filter(code=>typeof code==="string"):[];
           unlockedTowers = [...new Set(["gun", "laser", "ice", "rocket", "tesla", ...saved.unlocked])].filter(id => TOWER_TYPES.some(t => t.id === id));
         }
       } catch (_) { /* Das Spiel bleibt auch ohne verfügbaren Speicher spielbar. */ }
     }
 
     function saveProgress() {
-      try { localStorage.setItem("megaTowerDefenseProgress", JSON.stringify({ gems, bestWave, completedMissions, unlocked: unlockedTowers })); } catch (_) {}
+      try { localStorage.setItem("megaTowerDefenseProgress", JSON.stringify({ gems, bestWave, completedMissions, redeemedCodes, unlocked: unlockedTowers })); } catch (_) {}
     }
 
     setMap(0);
@@ -343,7 +348,8 @@
       ctx.restore();
 
       button({ x: 430, y: 500, w: 420, h: 78 }, "SPIEL STARTEN", "#168bc0", true, "Mission und Arsenal wählen");
-      button({ x: 480, y: 602, w: 320, h: 68 }, "TURM-SHOP", "#7c4dcc", true, `${gems} Gems verfügbar`);
+      button({ x: 310, y: 602, w: 300, h: 68 }, "TURM-SHOP", "#7c4dcc", true, `${gems} Gems verfügbar`);
+      button({ x: 670, y: 602, w: 300, h: 68 }, "CODE-MENÜ", "#166b8e", true, "Belohnungscode einlösen");
       drawGem(1048, 43, 18);
       text(`${gems}`, 1078, 43, 23, "#e7c5ff", "left", 950);
       text(`${unlockedTowers.length}/${TOWER_TYPES.length} Türme  •  ${completedMissions.length}/${MISSIONS.length} Missionen  •  Bestwelle ${bestWave}`, W / 2, 720, 18, "#8fb7ca", "center", 600);
@@ -411,6 +417,31 @@
       }
       text("‹ HAUPTMENÜ",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:180,h:50})?"#fff":"#83a3b3","left",800);
       drawToastOverlay();
+    }
+
+    function drawCodes(){
+      drawBackdrop();drawMotes(0);
+      text("CODE-MENÜ",W/2,76,46,"#eafaff","center",950);
+      text("Löse einen Belohnungscode für deinen gespeicherten Spielstand ein",W/2,126,18,"#8eafbd","center",650);
+      drawGem(1080,66,19);text(`${gems} GEMS`,1110,67,20,"#e7c5ff","left",950);
+      fillRounded(300,185,680,430,22,"rgba(8,25,35,.94)","rgba(104,210,247,.34)",2);
+      text("CODE EINGEBEN",W/2,245,18,"#83a9b8","center",850);
+      const field={x:390,y:295,w:500,h:82};
+      fillRounded(field.x,field.y,field.w,field.h,14,"#06131c",insideRect(mouse.x,mouse.y,field)?"#78dbff":"#315a6d",insideRect(mouse.x,mouse.y,field)?3:2);
+      const shown=codeInput||"Code hier eintippen …";
+      text(shown,field.x+24,field.y+field.h/2,24,codeInput?"#fff":"#567483","left",codeInput?800:600);
+      if(codeInput&&Math.sin(elapsed*5)>0){ctx.font="800 24px Inter, system-ui, sans-serif";const caretX=field.x+25+ctx.measureText(codeInput).width;ctx.fillStyle="#8ee9ff";ctx.fillRect(caretX,field.y+24,2,34);}
+      button({x:440,y:420,w:400,h:76},"CODE EINLÖSEN","#208cad",codeInput.length>0,"Enter funktioniert ebenfalls");
+      text(codeMessage||"Groß- und Kleinschreibung beachten",W/2,545,18,codeMessage?codeMessageColor:"#627f8d","center",800);
+      text("Tippe den Code über deine Tastatur ein. Rücktaste löscht Zeichen.",W/2,580,14,"#58717d","center",600);
+      text("‹ HAUPTMENÜ",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:180,h:50})?"#fff":"#83a3b3","left",800);
+    }
+
+    function redeemCode(){
+      const code=codeInput.trim();
+      if(code!=="ADMIN;Lex"){codeMessage="Dieser Code ist ungültig";codeMessageColor="#ff7887";return;}
+      if(redeemedCodes.includes(code)){codeMessage="Dieser Code wurde bereits eingelöst";codeMessageColor="#ffc76b";return;}
+      gems+=1000;redeemedCodes.push(code);saveProgress();codeMessage="Erfolgreich: +1000 Gems";codeMessageColor="#8fffb6";codeInput="";
     }
 
     function loadoutCard(i) {
@@ -1338,7 +1369,8 @@
       if (buttonId === 2) { selectedTowerType = null; selectedPlacedTower=null;selectedVehicle=null; return; }
       if (gameState === "MENU") {
         if (insideRect(x,y,{x:430,y:500,w:420,h:78})) gameState = "MAPSELECT";
-        else if(insideRect(x,y,{x:480,y:602,w:320,h:68}))gameState="SHOP";
+        else if(insideRect(x,y,{x:310,y:602,w:300,h:68}))gameState="SHOP";
+        else if(insideRect(x,y,{x:670,y:602,w:300,h:68})){gameState="CODES";codeInput="";codeMessage="";}
       } else if(gameState==="MAPSELECT"){
         if(insideRect(x,y,{x:25,y:20,w:180,h:50})){gameState="MENU";return;}
         MISSIONS.forEach((mission,i)=>{if(isMissionUnlocked(i)&&insideRect(x,y,missionCard(i))){selectedMission=i;setMap(mission.map);selectedLoadout=[];loadoutPage=0;gameState="LOADOUT";}});
@@ -1351,6 +1383,9 @@
           if(gems>=tower.unlock){gems-=tower.unlock;unlockedTowers.push(tower.id);saveProgress();burst(mouse.x,mouse.y,tower.color,28,130);toast={text:`${tower.name} freigeschaltet!`,time:2.2,color:tower.accent};}
           else toast={text:`Dir fehlen ${tower.unlock-gems} Gems`,time:1.7,color:"#ff8ca0"};
         }});
+      } else if(gameState==="CODES"){
+        if(insideRect(x,y,{x:25,y:20,w:180,h:50})){gameState="MENU";return;}
+        if(insideRect(x,y,{x:440,y:420,w:400,h:76})&&codeInput.length)redeemCode();
       } else if (gameState === "LOADOUT") {
         if (insideRect(x,y,{x:25,y:20,w:145,h:50})) { gameState = "MAPSELECT"; selectedLoadout = []; return; }
         const available=TOWER_TYPES.filter(t=>unlockedTowers.includes(t.id));const pages=Math.ceil(available.length/5);
@@ -1421,6 +1456,13 @@
     canvas.addEventListener("pointerdown", event => { event.preventDefault(); const p=canvasPoint(event); mouse={x:p.x,y:p.y,inside:true}; handlePointerDown(p.x,p.y,event.button); });
     canvas.addEventListener("contextmenu", event => event.preventDefault());
     window.addEventListener("keydown", event => {
+      if(gameState==="CODES"){
+        if(event.key==="Escape"){gameState="MENU";return;}
+        if(event.key==="Backspace"){event.preventDefault();codeInput=codeInput.slice(0,-1);codeMessage="";return;}
+        if(event.key==="Enter"){event.preventDefault();if(codeInput.length)redeemCode();return;}
+        if(event.key.length===1&&/^[a-zA-Z0-9;_-]$/.test(event.key)&&codeInput.length<32){event.preventDefault();codeInput+=event.key;codeMessage="";}
+        return;
+      }
       if (event.key === "Escape") {selectedTowerType=null;selectedPlacedTower=null;selectedVehicle=null;}
       if (gameState === "PLAYING" && ["1","2","3"].includes(event.key)) selectedTowerType=selectedLoadout[Number(event.key)-1] || null;
       if(gameState==="PLAYING"&&event.code==="Space"){event.preventDefault();const speeds=[1,2,3,5],index=speeds.indexOf(gameSpeed);gameSpeed=speeds[(index+1)%speeds.length];toast={text:`Spieltempo ${gameSpeed}×`,time:1,color:"#8fe8ff"};}
@@ -1433,6 +1475,7 @@
       if (gameState==="MENU") drawMenu(dt);
       else if(gameState==="MAPSELECT")drawMapSelect();
       else if(gameState==="SHOP")drawShop();
+      else if(gameState==="CODES")drawCodes();
       else if (gameState==="LOADOUT") drawLoadout();
       else if (gameState==="PLAYING") drawPlaying();
       else if (gameState==="GAMEOVER") drawGameOver(dt);
