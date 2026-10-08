@@ -33,6 +33,7 @@
       cursor: default;
     }
   </style>
+  <script async src="https://sdk.crazygames.com/crazygames-sdk-v3.js" onload="window.dispatchEvent(new Event('crazygames-sdk-ready'))"></script>
 </head>
 <body>
   <canvas id="game" width="1280" height="800" aria-label="Mega Tower Defense Spiel"></canvas>
@@ -81,14 +82,19 @@
     let gems = 0;
     let bestWave = 0;
     let completedMissions = [];
-    let redeemedCodes = [];
     let extraSlotUnlocked = false;
     let fifthSlotUnlocked = false;
+    let freeTowerAdProgress = 0;
+    let freeTowerPage = 0;
     const SLOT_4_COST = 35;
     const SLOT_5_COST = 90;
-    let codeInput = "";
-    let codeMessage = "";
-    let codeMessageColor = "#8faab7";
+    const SAVE_KEY = "megaTowerDefenseProductionV1";
+    let rewardMessage = "Eine vollständig angesehene Werbung bringt 5 Gems.";
+    let rewardMessageColor = "#8faab7";
+    let freeTowerMessage = "";
+    let crazySdkReady = false;
+    let crazySdkInitStarted = false;
+    let adInProgress = false;
     let unlockedTowers = ["gun", "laser", "ice", "rocket", "tesla"];
 
     const MAPS = [
@@ -232,21 +238,69 @@
 
     function loadProgress() {
       try {
-        const saved = JSON.parse(localStorage.getItem("megaTowerDefenseProgress") || "null");
+        localStorage.removeItem("megaTowerDefenseProgress");
+        const saved = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
         if (saved && Number.isFinite(saved.gems) && Array.isArray(saved.unlocked)) {
           gems = Math.max(0, Math.floor(saved.gems));
           bestWave = Math.max(0, Math.floor(saved.bestWave||0));
           completedMissions=Array.isArray(saved.completedMissions)?saved.completedMissions.filter(n=>Number.isInteger(n)&&n>=0&&n<MISSIONS.length):[];
-          redeemedCodes=Array.isArray(saved.redeemedCodes)?saved.redeemedCodes.filter(code=>typeof code==="string"):[];
           extraSlotUnlocked=saved.extraSlotUnlocked===true;
           fifthSlotUnlocked=saved.fifthSlotUnlocked===true&&extraSlotUnlocked;
+          freeTowerAdProgress=Math.max(0,Math.min(5,Math.floor(saved.freeTowerAdProgress||0)));
           unlockedTowers = [...new Set(["gun", "laser", "ice", "rocket", "tesla", ...saved.unlocked])].filter(id => TOWER_TYPES.some(t => t.id === id));
         }
       } catch (_) { /* Das Spiel bleibt auch ohne verfügbaren Speicher spielbar. */ }
     }
 
     function saveProgress() {
-      try { localStorage.setItem("megaTowerDefenseProgress", JSON.stringify({ gems, bestWave, completedMissions, redeemedCodes, extraSlotUnlocked, fifthSlotUnlocked, unlocked: unlockedTowers })); } catch (_) {}
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify({ gems, bestWave, completedMissions, extraSlotUnlocked, fifthSlotUnlocked, freeTowerAdProgress, unlocked: unlockedTowers })); } catch (_) {}
+    }
+
+    async function initializeCrazySdk(){
+      if(crazySdkInitStarted||!window.CrazyGames?.SDK)return;
+      crazySdkInitStarted=true;
+      try{
+        await window.CrazyGames.SDK.init();
+        crazySdkReady=true;
+        window.CrazyGames.SDK.game?.loadingStop?.();
+      }catch(_){crazySdkReady=false;crazySdkInitStarted=false;}
+    }
+
+    function crazyGameEvent(name){
+      if(!crazySdkReady)return;
+      try{window.CrazyGames.SDK.game?.[name]?.();}catch(_){}
+    }
+
+    function setAdMessage(kind,message,color="#8faab7"){
+      if(kind==="gems"){rewardMessage=message;rewardMessageColor=color;}
+      else freeTowerMessage=message;
+    }
+
+    function requestRewardedAd(kind){
+      if(adInProgress||(kind==="gems"&&gameState!=="REWARDS")||(kind==="tower"&&gameState!=="FREE_TOWER"))return;
+      if(kind==="tower"&&freeTowerAdProgress>=5)return;
+      if(kind==="tower"&&!TOWER_TYPES.some(t=>t.unlock&&!unlockedTowers.includes(t.id))){freeTowerMessage="Alle Türme sind bereits freigeschaltet.";return;}
+      if(!crazySdkReady){initializeCrazySdk();setAdMessage(kind,"Werbung ist nur in der CrazyGames-Version verfügbar.","#ffca68");return;}
+      adInProgress=true;setAdMessage(kind,"Werbung wird geladen …","#8fe8ff");
+      let settled=false;
+      const finish=()=>{
+        if(settled)return;settled=true;adInProgress=false;
+        if(kind==="gems"){
+          gems+=5;saveProgress();setAdMessage(kind,"Belohnung erhalten: +5 Gems!","#8fffb6");burst(W/2,H/2,"#c56dff",30,150);
+        }else{
+          freeTowerAdProgress=Math.min(5,freeTowerAdProgress+1);saveProgress();
+          freeTowerMessage=freeTowerAdProgress>=5?"5/5 geschafft – wähle jetzt deinen Turm!":`Werbung abgeschlossen: ${freeTowerAdProgress}/5`;
+        }
+      };
+      const fail=()=>{if(settled)return;settled=true;adInProgress=false;setAdMessage(kind,"Werbung nicht verfügbar – keine Belohnung verbraucht.","#ff8ca0");};
+      try{
+        const result=window.CrazyGames.SDK.ad.requestAd("rewarded",{
+          adStarted:()=>setAdMessage(kind,"Werbung läuft …","#8fe8ff"),
+          adFinished:finish,
+          adError:fail
+        });
+        if(result&&typeof result.catch==="function")result.catch(fail);
+      }catch(_){fail();}
     }
 
     setMap(0);
@@ -375,7 +429,7 @@
 
       button({ x: 430, y: 500, w: 420, h: 78 }, "SPIEL STARTEN", "#168bc0", true, "Mission und Arsenal wählen");
       button({ x: 480, y: 602, w: 320, h: 68 }, "SHOP", "#7c4dcc", true, "Türme & Features");
-      button({ x: 866, y: 20, w: 134, h: 46 }, "CODE", "#166b8e", true);
+      button({ x: 820, y: 20, w: 180, h: 46 }, "GET GEMS", "#166b8e", true);
       drawGem(1048, 43, 18);
       text(`${gems}`, 1078, 43, 23, "#e7c5ff", "left", 950);
       text(`${unlockedTowers.length}/${TOWER_TYPES.length} Türme  •  ${completedMissions.length}/${MISSIONS.length} Missionen  •  Bestwelle ${bestWave}`, W / 2, 720, 18, "#8fb7ca", "center", 600);
@@ -424,6 +478,7 @@
 
     function shopTabRect(category){return category==="towers"?{x:430,y:126,w:195,h:42}:{x:655,y:126,w:195,h:42};}
     function featureCardRect(index){return{x:145+index*520,y:215,w:450,h:390};}
+    function freeTowerBannerRect(){return{x:250,y:645,w:780,h:66};}
 
     function drawShop() {
       drawBackdrop(); drawMotes(0);
@@ -448,6 +503,11 @@
           if(unlocked) text("FREIGESCHALTET ✓",r.x+300,r.y+172,17,"#70e49a","center",900);
           else { drawGem(r.x+243,r.y+171,14); text(`${tower.unlock} GEMS`,r.x+266,r.y+172,18,affordable?"#e8c7ff":"#8b738f","left",950); }
         });
+        const freeRect=freeTowerBannerRect(),freeHover=insideRect(mouse.x,mouse.y,freeRect);
+        fillRounded(freeRect.x,freeRect.y-(freeHover?3:0),freeRect.w,freeRect.h,15,freeHover?"#243f50":"#132b38",freeTowerAdProgress>=5?"#ffd25e":"#68cce9",freeTowerAdProgress>=5?4:2);
+        text("GRATIS-TURM",freeRect.x+28,freeRect.y+23-(freeHover?3:0),18,freeTowerAdProgress>=5?"#ffd55c":"#a7eaff","left",950);
+        text(freeTowerAdProgress>=5?"Belohnung bereit – Turm auswählen":`${freeTowerAdProgress}/5 Werbungen abgeschlossen`,freeRect.x+28,freeRect.y+47-(freeHover?3:0),14,"#9db8c3","left",700);
+        text(freeTowerAdProgress>=5?"JETZT AUSWÄHLEN ›":"WERBUNGEN ANSEHEN ›",freeRect.x+freeRect.w-28,freeRect.y+33-(freeHover?3:0),16,"#fff","right",900);
         if(pageCount>1){
           text("‹",470,755,38,shopPage>0?"#fff":"#3d5663","center",950);
           text(`SHOP-SEITE ${shopPage+1}/${pageCount}`,W/2,755,14,"#7796a5","center",850);
@@ -480,29 +540,63 @@
     function loadoutSlots(){return fifthSlotUnlocked?5:extraSlotUnlocked?4:3;}
     function placementLimit(){return loadoutSlots()===3?5:loadoutSlots()===4?4:3;}
 
-    function drawCodes(){
+    function drawRewards(){
       drawBackdrop();drawMotes(0);
-      text("CODE-MENÜ",W/2,76,46,"#eafaff","center",950);
-      text("Löse einen Belohnungscode für deinen gespeicherten Spielstand ein",W/2,126,18,"#8eafbd","center",650);
+      text("GET GEMS",W/2,76,46,"#eafaff","center",950);
+      text("Belohnungswerbung über CrazyGames",W/2,126,18,"#8eafbd","center",650);
       drawGem(1080,66,19);text(`${gems} GEMS`,1110,67,20,"#e7c5ff","left",950);
-      fillRounded(300,185,680,430,22,"rgba(8,25,35,.94)","rgba(104,210,247,.34)",2);
-      text("CODE EINGEBEN",W/2,245,18,"#83a9b8","center",850);
-      const field={x:390,y:295,w:500,h:82};
-      fillRounded(field.x,field.y,field.w,field.h,14,"#06131c",insideRect(mouse.x,mouse.y,field)?"#78dbff":"#315a6d",insideRect(mouse.x,mouse.y,field)?3:2);
-      const shown=codeInput||"Code hier eintippen …";
-      text(shown,field.x+24,field.y+field.h/2,24,codeInput?"#fff":"#567483","left",codeInput?800:600);
-      if(codeInput&&Math.sin(elapsed*5)>0){ctx.font="800 24px Inter, system-ui, sans-serif";const caretX=field.x+25+ctx.measureText(codeInput).width;ctx.fillStyle="#8ee9ff";ctx.fillRect(caretX,field.y+24,2,34);}
-      button({x:440,y:420,w:400,h:76},"CODE EINLÖSEN","#208cad",codeInput.length>0,"Enter funktioniert ebenfalls");
-      text(codeMessage||"Groß- und Kleinschreibung beachten",W/2,545,18,codeMessage?codeMessageColor:"#627f8d","center",800);
-      text("Tippe den Code über deine Tastatur ein. Rücktaste löscht Zeichen.",W/2,580,14,"#58717d","center",600);
+      fillRounded(300,178,680,450,22,"rgba(8,25,35,.94)","rgba(104,210,247,.34)",2);
+      drawGem(W/2,278,58);
+      text("+5 GEMS",W/2,372,37,"#e7c5ff","center",950);
+      text("Schau die Werbung vollständig an, um die Belohnung zu erhalten.",W/2,414,16,"#9ab6c2","center",650);
+      button({x:430,y:455,w:420,h:82},adInProgress?"WERBUNG LÄUFT …":"WERBUNG ANSCHAUEN","#208cad",crazySdkReady&&!adInProgress,"1 Werbung  •  5 Gems");
+      text(rewardMessage,W/2,580,17,rewardMessageColor,"center",800);
+      if(!crazySdkReady)text("Die Schaltfläche wird auf CrazyGames automatisch aktiviert.",W/2,608,13,"#5f7c88","center",650);
       text("‹ HAUPTMENÜ",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:180,h:50})?"#fff":"#83a3b3","left",800);
     }
 
-    function redeemCode(){
-      const code=codeInput.trim();
-      if(code!=="ADMIN;Lex"){codeMessage="Dieser Code ist ungültig";codeMessageColor="#ff7887";return;}
-      if(redeemedCodes.includes(code)){codeMessage="Dieser Code wurde bereits eingelöst";codeMessageColor="#ffc76b";return;}
-      gems+=1000;redeemedCodes.push(code);saveProgress();codeMessage="Erfolgreich: +1000 Gems";codeMessageColor="#8fffb6";codeInput="";
+    function drawFreeTower(){
+      drawBackdrop();drawMotes(0);
+      text("GRATIS-TURM",W/2,65,44,"#eafaff","center",950);
+      drawGem(1060,64,20);text(`${gems} GEMS`,1090,65,22,"#e7c5ff","left",950);
+      const locked=TOWER_TYPES.filter(t=>t.unlock&&!unlockedTowers.includes(t.id));
+      if(!locked.length){
+        text("ARSENAL KOMPLETT",W/2,300,42,"#8fffb6","center",950);
+        text("Du hast bereits jeden verfügbaren Turm freigeschaltet.",W/2,360,20,"#9cb7c2","center",700);
+        button({x:455,y:440,w:370,h:72},"ZUM SHOP","#327899",true);
+      }else if(freeTowerAdProgress<5){
+        text("Schau fünf Belohnungswerbungen und wähle danach einen Turm.",W/2,116,18,"#8eafbd","center",650);
+        fillRounded(300,180,680,420,22,"rgba(8,25,35,.94)","rgba(104,210,247,.34)",2);
+        text(`${freeTowerAdProgress}/5`,W/2,260,58,freeTowerAdProgress?"#ffd45a":"#d5edf5","center",950);
+        text("WERBUNGEN ABGESCHLOSSEN",W/2,315,16,"#7798a7","center",850);
+        for(let i=0;i<5;i++)fillRounded(480+i*68,350,52,20,10,i<freeTowerAdProgress?"#ffd45a":"#193746",i<freeTowerAdProgress?"#fff2a2":"#426578",2);
+        button({x:430,y:420,w:420,h:82},adInProgress?"WERBUNG LÄUFT …":"WERBUNG ANSCHAUEN","#bd7b25",crazySdkReady&&!adInProgress,`${freeTowerAdProgress}/5 abgeschlossen`);
+        text(freeTowerMessage||"Jede Werbung muss vollständig abgeschlossen werden.",W/2,555,16,freeTowerAdProgress?"#b8d4df":"#708e9b","center",800);
+        if(!crazySdkReady)text("Die Schaltfläche wird auf CrazyGames automatisch aktiviert.",W/2,580,13,"#5f7c88","center",650);
+      }else{
+        text("5/5 geschafft – wähle einen Turm kostenlos aus",W/2,115,19,"#ffd45a","center",850);
+        const pages=Math.ceil(locked.length/4);freeTowerPage=Math.max(0,Math.min(freeTowerPage,pages-1));
+        locked.slice(freeTowerPage*4,freeTowerPage*4+4).forEach((tower,i)=>{
+          const r=shopCard(i),hover=insideRect(mouse.x,mouse.y,r);
+          ctx.save();ctx.shadowColor=hover?tower.color:"rgba(0,0,0,.5)";ctx.shadowBlur=hover?22:7;
+          fillRounded(r.x,r.y-(hover?3:0),r.w,r.h,18,"#102532",hover?tower.color:"rgba(126,191,216,.25)",hover?4:2);ctx.restore();
+          drawTowerModel(tower,r.x+82,r.y+98,1.15,elapsed*.4);
+          fittedText(tower.name,r.x+155,r.y+42,295,22,14,tower.accent,"left",950);
+          wrapText(tower.description,r.x+300,r.y+94,290,15,17,"#86a5b2",3);
+          text("GRATIS FREISCHALTEN",r.x+300,r.y+172,17,"#ffd45a","center",950);
+        });
+        if(pages>1){text("‹",470,755,38,freeTowerPage>0?"#fff":"#3d5663","center",950);text(`AUSWAHL ${freeTowerPage+1}/${pages}`,W/2,755,14,"#7796a5","center",850);text("›",810,755,38,freeTowerPage<pages-1?"#fff":"#3d5663","center",950);}
+      }
+      text("‹ SHOP",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:140,h:50})?"#fff":"#83a3b3","left",800);
+      drawToastOverlay();
+    }
+
+    function drawAdOverlay(){
+      if(!adInProgress)return;
+      ctx.save();ctx.fillStyle="rgba(2,8,13,.78)";ctx.fillRect(0,0,W,H);
+      fillRounded(W/2-250,H/2-65,500,130,20,"#091c28","#73ddff",3);
+      text("WERBUNG LÄUFT",W/2,H/2-18,28,"#fff","center",950);
+      text("Die Belohnung folgt nach vollständigem Abschluss.",W/2,H/2+28,15,"#9fc1cf","center",700);ctx.restore();
     }
 
     function loadoutCard(i) {
@@ -1089,6 +1183,7 @@
           toast = { text: "Der Kern wurde getroffen!", time: 1.4, color: "#ff7180" };
           if (hp <= 0) {
             hp = 0;
+            crazyGameEvent("gameplayStop");
             gameState = "GAMEOVER";
             selectedTowerType = null;
           }
@@ -1111,7 +1206,7 @@
         if(wave>=MISSIONS[selectedMission].waves){
           gems+=5;
           if(!completedMissions.includes(selectedMission))completedMissions.push(selectedMission);
-          saveProgress();gameState="VICTORY";selectedTowerType=null;selectedPlacedTower=null;selectedVehicle=null;
+          saveProgress();crazyGameEvent("gameplayStop");gameState="VICTORY";selectedTowerType=null;selectedPlacedTower=null;selectedVehicle=null;
           toast={text:"",time:0,color:"#fff"};updateEffects(dt);return;
         }
         saveProgress();
@@ -1444,11 +1539,12 @@
     }
 
     function handlePointerDown(x, y, buttonId = 0) {
+      if(adInProgress)return;
       if (buttonId === 2) { selectedTowerType = null; selectedPlacedTower=null;selectedVehicle=null; return; }
       if (gameState === "MENU") {
         if (insideRect(x,y,{x:430,y:500,w:420,h:78})){const firstOpen=MISSIONS.findIndex((_,i)=>!completedMissions.includes(i)&&isMissionUnlocked(i));missionPage=firstOpen<0?Math.ceil(MISSIONS.length/6)-1:Math.floor(firstOpen/6);gameState = "MAPSELECT";}
         else if(insideRect(x,y,{x:480,y:602,w:320,h:68})){shopCategory="towers";shopPage=0;gameState="SHOP";}
-        else if(insideRect(x,y,{x:866,y:20,w:134,h:46})){gameState="CODES";codeInput="";codeMessage="";}
+        else if(insideRect(x,y,{x:820,y:20,w:180,h:46})){rewardMessage="Eine vollständig angesehene Werbung bringt 5 Gems.";rewardMessageColor="#8faab7";gameState="REWARDS";}
       } else if(gameState==="MAPSELECT"){
         if(insideRect(x,y,{x:25,y:20,w:180,h:50})){gameState="MENU";return;}
         const pages=Math.ceil(MISSIONS.length/6);
@@ -1460,6 +1556,7 @@
         for(const category of ["towers","features"]){if(insideRect(x,y,shopTabRect(category))){shopCategory=category;return;}}
         if(shopCategory==="towers"){
           const premium=TOWER_TYPES.filter(t=>t.unlock),pages=Math.ceil(premium.length/4);
+          if(insideRect(x,y,freeTowerBannerRect())){freeTowerPage=0;freeTowerMessage="";gameState="FREE_TOWER";return;}
           if(y>720&&x>420&&x<540&&shopPage>0){shopPage--;return;}
           if(y>720&&x>750&&x<860&&shopPage<pages-1){shopPage++;return;}
           premium.slice(shopPage*4,shopPage*4+4).forEach((tower,i)=>{if(insideRect(x,y,shopCard(i))&&!unlockedTowers.includes(tower.id)){
@@ -1478,9 +1575,21 @@
             else toast={text:`Dir fehlen ${SLOT_5_COST-gems} Gems`,time:1.7,color:"#ff8ca0"};
           }
         }
-      } else if(gameState==="CODES"){
+      } else if(gameState==="REWARDS"){
         if(insideRect(x,y,{x:25,y:20,w:180,h:50})){gameState="MENU";return;}
-        if(insideRect(x,y,{x:440,y:420,w:400,h:76})&&codeInput.length)redeemCode();
+        if(insideRect(x,y,{x:430,y:455,w:420,h:82}))requestRewardedAd("gems");
+      } else if(gameState==="FREE_TOWER"){
+        if(insideRect(x,y,{x:25,y:20,w:140,h:50})){gameState="SHOP";return;}
+        const locked=TOWER_TYPES.filter(t=>t.unlock&&!unlockedTowers.includes(t.id));
+        if(!locked.length){if(insideRect(x,y,{x:455,y:440,w:370,h:72}))gameState="SHOP";return;}
+        if(freeTowerAdProgress<5){if(insideRect(x,y,{x:430,y:420,w:420,h:82}))requestRewardedAd("tower");return;}
+        const pages=Math.ceil(locked.length/4);
+        if(y>720&&x>420&&x<540&&freeTowerPage>0){freeTowerPage--;return;}
+        if(y>720&&x>750&&x<860&&freeTowerPage<pages-1){freeTowerPage++;return;}
+        locked.slice(freeTowerPage*4,freeTowerPage*4+4).forEach((tower,i)=>{if(insideRect(x,y,shopCard(i))){
+          unlockedTowers.push(tower.id);freeTowerAdProgress=0;saveProgress();burst(mouse.x,mouse.y,tower.color,32,150);
+          toast={text:`${tower.name} kostenlos freigeschaltet!`,time:2.4,color:tower.accent};shopCategory="towers";shopPage=0;gameState="SHOP";
+        }});
       } else if (gameState === "LOADOUT") {
         if (insideRect(x,y,{x:25,y:20,w:145,h:50})) { gameState = "MAPSELECT"; selectedLoadout = []; return; }
         const available=TOWER_TYPES.filter(t=>unlockedTowers.includes(t.id));const pages=Math.ceil(available.length/5);
@@ -1496,7 +1605,7 @@
             return;
           }
         }
-        if (selectedLoadout.length===loadoutSlots() && insideRect(x,y,{x:430,y:670,w:420,h:82})) { resetGame(); gameState="PLAYING"; }
+        if (selectedLoadout.length===loadoutSlots() && insideRect(x,y,{x:430,y:670,w:420,h:82})) { resetGame(); crazyGameEvent("gameplayStart"); gameState="PLAYING"; }
       } else if (gameState === "PLAYING") {
         for(let i=0;i<4;i++)if(insideRect(x,y,speedButtonRect(i))){gameSpeed=[1,2,3,5][i];toast={text:`Spieltempo ${gameSpeed}×`,time:1,color:"#8fe8ff"};return;}
         if(selectedPlacedTower&&insideRect(x,y,upgradeButtonRect())){
@@ -1553,13 +1662,6 @@
     canvas.addEventListener("pointerdown", event => { event.preventDefault(); const p=canvasPoint(event); mouse={x:p.x,y:p.y,inside:true}; handlePointerDown(p.x,p.y,event.button); });
     canvas.addEventListener("contextmenu", event => event.preventDefault());
     window.addEventListener("keydown", event => {
-      if(gameState==="CODES"){
-        if(event.key==="Escape"){gameState="MENU";return;}
-        if(event.key==="Backspace"){event.preventDefault();codeInput=codeInput.slice(0,-1);codeMessage="";return;}
-        if(event.key==="Enter"){event.preventDefault();if(codeInput.length)redeemCode();return;}
-        if(event.key.length===1&&/^[a-zA-Z0-9;_-]$/.test(event.key)&&codeInput.length<32){event.preventDefault();codeInput+=event.key;codeMessage="";}
-        return;
-      }
       if (event.key === "Escape") {selectedTowerType=null;selectedPlacedTower=null;selectedVehicle=null;}
       if (gameState === "PLAYING" && ["1","2","3","4","5"].includes(event.key)) selectedTowerType=selectedLoadout[Number(event.key)-1] || null;
       if(gameState==="PLAYING"&&event.code==="Space"){event.preventDefault();const speeds=[1,2,3,5],index=speeds.indexOf(gameSpeed);gameSpeed=speeds[(index+1)%speeds.length];toast={text:`Spieltempo ${gameSpeed}×`,time:1,color:"#8fe8ff"};}
@@ -1572,16 +1674,20 @@
       if (gameState==="MENU") drawMenu(dt);
       else if(gameState==="MAPSELECT")drawMapSelect();
       else if(gameState==="SHOP")drawShop();
-      else if(gameState==="CODES")drawCodes();
+      else if(gameState==="REWARDS")drawRewards();
+      else if(gameState==="FREE_TOWER")drawFreeTower();
       else if (gameState==="LOADOUT") drawLoadout();
       else if (gameState==="PLAYING") drawPlaying();
       else if (gameState==="GAMEOVER") drawGameOver(dt);
       else if(gameState==="VICTORY")drawVictory(dt);
+      drawAdOverlay();
       requestAnimationFrame(frame);
     }
 
     loadProgress();
     initMotes();
+    window.addEventListener("crazygames-sdk-ready",initializeCrazySdk);
+    initializeCrazySdk();
     requestAnimationFrame(frame);
   </script>
 </body>
