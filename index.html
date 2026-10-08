@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="theme-color" content="#07111d">
+  <link rel="icon" href="data:,">
   <title>Mega Tower Defense</title>
   <style>
     * { box-sizing: border-box; }
@@ -56,6 +57,7 @@
     let missionPage = 0;
     let loadoutPage = 0;
     let shopPage = 0;
+    let shopCategory = "towers";
     let towers = [];
     let placedCounts = {};
     let enemies = [];
@@ -81,6 +83,9 @@
     let completedMissions = [];
     let redeemedCodes = [];
     let extraSlotUnlocked = false;
+    let fifthSlotUnlocked = false;
+    const SLOT_4_COST = 35;
+    const SLOT_5_COST = 90;
     let codeInput = "";
     let codeMessage = "";
     let codeMessageColor = "#8faab7";
@@ -234,13 +239,14 @@
           completedMissions=Array.isArray(saved.completedMissions)?saved.completedMissions.filter(n=>Number.isInteger(n)&&n>=0&&n<MISSIONS.length):[];
           redeemedCodes=Array.isArray(saved.redeemedCodes)?saved.redeemedCodes.filter(code=>typeof code==="string"):[];
           extraSlotUnlocked=saved.extraSlotUnlocked===true;
+          fifthSlotUnlocked=saved.fifthSlotUnlocked===true&&extraSlotUnlocked;
           unlockedTowers = [...new Set(["gun", "laser", "ice", "rocket", "tesla", ...saved.unlocked])].filter(id => TOWER_TYPES.some(t => t.id === id));
         }
       } catch (_) { /* Das Spiel bleibt auch ohne verfügbaren Speicher spielbar. */ }
     }
 
     function saveProgress() {
-      try { localStorage.setItem("megaTowerDefenseProgress", JSON.stringify({ gems, bestWave, completedMissions, redeemedCodes, extraSlotUnlocked, unlocked: unlockedTowers })); } catch (_) {}
+      try { localStorage.setItem("megaTowerDefenseProgress", JSON.stringify({ gems, bestWave, completedMissions, redeemedCodes, extraSlotUnlocked, fifthSlotUnlocked, unlocked: unlockedTowers })); } catch (_) {}
     }
 
     setMap(0);
@@ -368,8 +374,8 @@
       ctx.restore();
 
       button({ x: 430, y: 500, w: 420, h: 78 }, "SPIEL STARTEN", "#168bc0", true, "Mission und Arsenal wählen");
-      button({ x: 310, y: 602, w: 300, h: 68 }, "TURM-SHOP", "#7c4dcc", true, `${gems} Gems verfügbar`);
-      button({ x: 670, y: 602, w: 300, h: 68 }, "CODE-MENÜ", "#166b8e", true, "Belohnungscode einlösen");
+      button({ x: 480, y: 602, w: 320, h: 68 }, "SHOP", "#7c4dcc", true, "Türme & Features");
+      button({ x: 866, y: 20, w: 134, h: 46 }, "CODE", "#166b8e", true);
       drawGem(1048, 43, 18);
       text(`${gems}`, 1078, 43, 23, "#e7c5ff", "left", 950);
       text(`${unlockedTowers.length}/${TOWER_TYPES.length} Türme  •  ${completedMissions.length}/${MISSIONS.length} Missionen  •  Bestwelle ${bestWave}`, W / 2, 720, 18, "#8fb7ca", "center", 600);
@@ -416,39 +422,63 @@
       return { x: 105 + (i%2)*545, y: 175 + Math.floor(i/2)*245, w: 475, h: 205 };
     }
 
+    function shopTabRect(category){return category==="towers"?{x:430,y:126,w:195,h:42}:{x:655,y:126,w:195,h:42};}
+    function featureCardRect(index){return{x:145+index*520,y:215,w:450,h:390};}
+
     function drawShop() {
       drawBackdrop(); drawMotes(0);
-      text("TURM-SHOP",W/2,65,46,"#eafaff","center",950);
+      text("SHOP",W/2,60,46,"#eafaff","center",950);
       drawGem(1060,64,20); text(`${gems} GEMS`,1090,65,22,"#e7c5ff","left",950);
-      text("Verdiene alle 3 Wellen einen Gem und 5 Bonus-Gems pro Missionssieg",W/2,112,18,"#91afbd","center",650);
-      const premium=TOWER_TYPES.filter(t=>t.unlock),pageCount=Math.ceil(premium.length/4);
-      shopPage=Math.min(shopPage,pageCount-1);
-      premium.slice(shopPage*4,shopPage*4+4).forEach((tower,i)=>{
-        const r=shopCard(i), unlocked=unlockedTowers.includes(tower.id), affordable=gems>=tower.unlock;
-        ctx.save();ctx.shadowColor=unlocked?tower.color:"rgba(0,0,0,.5)";ctx.shadowBlur=unlocked?18:7;
-        fillRounded(r.x,r.y,r.w,r.h,18,"#102532",unlocked?tower.color:"rgba(126,191,216,.25)",unlocked?3:2);ctx.restore();
-        drawTowerModel(tower,r.x+82,r.y+98,1.15,elapsed*.4);
-        text(tower.name,r.x+155,r.y+42,22,tower.accent,"left",950);
-        text(tower.id==="military"?"Fahrzeug 180 LP  •  Einsatz 60s":`Schaden ${tower.damage}  •  Reichweite ${tower.range}`,r.x+155,r.y+78,15,"#c4d9e1","left",700);
-        wrapText(tower.description,r.x+300,r.y+112,290,15,17,"#86a5b2");
-        if(unlocked) text("FREIGESCHALTET ✓",r.x+300,r.y+172,17,"#70e49a","center",900);
-        else { drawGem(r.x+243,r.y+171,14); text(`${tower.unlock} GEMS`,r.x+266,r.y+172,18,affordable?"#e8c7ff":"#8b738f","left",950); }
-      });
-      const slotRect=slotUnlockRect(),slotHover=insideRect(mouse.x,mouse.y,slotRect),slotCost=35;
-      fillRounded(slotRect.x,slotRect.y,slotRect.w,slotRect.h,14,extraSlotUnlocked?"#173d2b":slotHover?"#253c51":"#142936",extraSlotUnlocked?"#75e59d":slotHover?"#b88cff":"rgba(126,191,216,.3)",extraSlotUnlocked?3:2);
-      text(extraSlotUnlocked?"4. LOADOUT-SLOT FREIGESCHALTET ✓":"4. LOADOUT-SLOT",slotRect.x+24,slotRect.y+slotRect.h/2,17,extraSlotUnlocked?"#89f3ad":"#e8d5ff","left",950);
-      if(!extraSlotUnlocked){drawGem(slotRect.x+slotRect.w-105,slotRect.y+slotRect.h/2,13);text(`${slotCost} GEMS`,slotRect.x+slotRect.w-82,slotRect.y+slotRect.h/2,16,gems>=slotCost?"#f0d4ff":"#8b738f","left",900);}
-      if(pageCount>1){
-        text("‹",470,755,38,shopPage>0?"#fff":"#3d5663","center",950);
-        text(`SHOP-SEITE ${shopPage+1}/${pageCount}`,W/2,755,14,"#7796a5","center",850);
-        text("›",810,755,38,shopPage<pageCount-1?"#fff":"#3d5663","center",950);
+      for(const category of ["towers","features"]){
+        const r=shopTabRect(category),active=shopCategory===category,hover=insideRect(mouse.x,mouse.y,r);
+        fillRounded(r.x,r.y,r.w,r.h,12,active?"#24495e":hover?"#172f3d":"#0d202b",active?"#7fe1ff":"rgba(126,191,216,.3)",active?3:2);
+        text(category==="towers"?"TÜRME":"FEATURES",r.x+r.w/2,r.y+r.h/2,16,active?"#fff":"#7899a8","center",900);
+      }
+      if(shopCategory==="towers"){
+        const premium=TOWER_TYPES.filter(t=>t.unlock),pageCount=Math.ceil(premium.length/4);
+        shopPage=Math.max(0,Math.min(shopPage,pageCount-1));
+        premium.slice(shopPage*4,shopPage*4+4).forEach((tower,i)=>{
+          const r=shopCard(i), unlocked=unlockedTowers.includes(tower.id), affordable=gems>=tower.unlock;
+          ctx.save();ctx.shadowColor=unlocked?tower.color:"rgba(0,0,0,.5)";ctx.shadowBlur=unlocked?18:7;
+          fillRounded(r.x,r.y,r.w,r.h,18,"#102532",unlocked?tower.color:"rgba(126,191,216,.25)",unlocked?3:2);ctx.restore();
+          drawTowerModel(tower,r.x+82,r.y+98,1.15,elapsed*.4);
+          fittedText(tower.name,r.x+155,r.y+42,295,22,14,tower.accent,"left",950);
+          fittedText(tower.id==="military"?"Fahrzeug 180 LP  •  Einsatz 60s":`Schaden ${tower.damage}  •  Reichweite ${tower.range}`,r.x+155,r.y+78,295,15,11,"#c4d9e1","left",700);
+          wrapText(tower.description,r.x+300,r.y+112,290,15,17,"#86a5b2",3);
+          if(unlocked) text("FREIGESCHALTET ✓",r.x+300,r.y+172,17,"#70e49a","center",900);
+          else { drawGem(r.x+243,r.y+171,14); text(`${tower.unlock} GEMS`,r.x+266,r.y+172,18,affordable?"#e8c7ff":"#8b738f","left",950); }
+        });
+        if(pageCount>1){
+          text("‹",470,755,38,shopPage>0?"#fff":"#3d5663","center",950);
+          text(`SHOP-SEITE ${shopPage+1}/${pageCount}`,W/2,755,14,"#7796a5","center",850);
+          text("›",810,755,38,shopPage<pageCount-1?"#fff":"#3d5663","center",950);
+        }
+      }else{
+        const features=[
+          {title:"4. LOADOUT-SLOT",subtitle:"Mehr taktische Freiheit",cost:SLOT_4_COST,unlocked:extraSlotUnlocked,color:"#9e7cff",lines:["4 Türme in die Mission mitnehmen","Maximal 4 Exemplare je Turm","Bis zu 16 Türme gleichzeitig"]},
+          {title:"5. LOADOUT-SLOT",subtitle:"Das Elite-Arsenal",cost:SLOT_5_COST,unlocked:fifthSlotUnlocked,color:"#ffb957",locked:!extraSlotUnlocked,lines:["5 Türme in die Mission mitnehmen","Maximal 3 Exemplare je Turm","Bis zu 15 Türme gleichzeitig"]}
+        ];
+        features.forEach((feature,i)=>{
+          const r=featureCardRect(i),hover=insideRect(mouse.x,mouse.y,r),blocked=feature.locked&&!feature.unlocked;
+          ctx.save();ctx.shadowColor=feature.unlocked?feature.color:"rgba(0,0,0,.5)";ctx.shadowBlur=feature.unlocked?24:8;
+          fillRounded(r.x,r.y,r.w,r.h,22,feature.unlocked?"#18382d":hover&&!blocked?"#1a3545":"#102532",feature.unlocked?"#78e5a0":hover&&!blocked?feature.color:"rgba(126,191,216,.28)",feature.unlocked?4:2);ctx.restore();
+          fillRounded(r.x+155,r.y+34,140,92,18,"#0a1821",feature.color,3);
+          for(let n=0;n<i+4;n++){fillRounded(r.x+173+n*24,r.y+60,17,42,6,feature.color,"#fff3",1);text(`${n+1}`,r.x+181+n*24,r.y+82,11,"#07131b","center",950);}
+          text(feature.title,r.x+r.w/2,r.y+164,24,feature.color,"center",950);
+          text(feature.subtitle,r.x+r.w/2,r.y+196,15,"#98b5c1","center",700);
+          feature.lines.forEach((line,lineIndex)=>text(`✓  ${line}`,r.x+45,r.y+238+lineIndex*34,16,"#d5e7ed","left",700));
+          if(feature.unlocked)text("FREIGESCHALTET ✓",r.x+r.w/2,r.y+350,18,"#83eea8","center",950);
+          else if(blocked)text("ZUERST SLOT 4 FREISCHALTEN",r.x+r.w/2,r.y+350,16,"#778c95","center",900);
+          else {drawGem(r.x+r.w/2-48,r.y+350,15);text(`${feature.cost} GEMS`,r.x+r.w/2-22,r.y+350,19,gems>=feature.cost?"#efd7ff":"#8d748f","left",950);}
+        });
+        text(`Aktuelles Limit: ${placementLimit()} je Turmtyp  •  maximal ${loadoutSlots()*placementLimit()} Türme`,W/2,665,17,"#8eb2c1","center",750);
       }
       text("‹ HAUPTMENÜ",45,45,18,insideRect(mouse.x,mouse.y,{x:25,y:20,w:180,h:50})?"#fff":"#83a3b3","left",800);
       drawToastOverlay();
     }
 
-    function slotUnlockRect(){return{x:350,y:647,w:580,h:58};}
-    function loadoutSlots(){return extraSlotUnlocked?4:3;}
+    function loadoutSlots(){return fifthSlotUnlocked?5:extraSlotUnlocked?4:3;}
+    function placementLimit(){return loadoutSlots()===3?5:loadoutSlots()===4?4:3;}
 
     function drawCodes(){
       drawBackdrop();drawMotes(0);
@@ -510,12 +540,12 @@
           text("✓", r.x + 34, r.y + 34, 25, "#15212b", "center", 950);
         }
         drawTowerModel(tower, r.x + r.w / 2, r.y + 105, 1.25, elapsed * .45);
-        text(tower.name, r.x + r.w / 2, r.y + 184, tower.name.length > 16 ? 16 : 18, tower.accent, "center", 900);
-        text(tower.id==="military"?"Fahrzeug  180 LP":`Schaden  ${tower.damage}`, r.x + 22, r.y + 226, 17, "#ecf8ff", "left", 700);
-        text(tower.id==="military"?"Neue Einheit / Welle":`Reichweite  ${tower.range}`, r.x + 22, r.y + 259, tower.id==="military"?15:17, "#ecf8ff", "left", 700);
-        text(tower.id==="military"?"Zusätzlich alle 60s":`Feuerrate  ${tower.rate}/s`, r.x + 22, r.y + 292, tower.id==="military"?15:17, "#ecf8ff", "left", 700);
+        fittedText(tower.name, r.x + r.w / 2, r.y + 184, r.w - 28, 18, 12, tower.accent, "center", 900);
+        fittedText(tower.id==="military"?"Fahrzeug  180 LP":`Schaden  ${tower.damage}`, r.x + 22, r.y + 226, r.w-40, 17, 12, "#ecf8ff", "left", 700);
+        fittedText(tower.id==="military"?"Neue Einheit / Welle":`Reichweite  ${tower.range}`, r.x + 22, r.y + 259, r.w-40, 17, 12, "#ecf8ff", "left", 700);
+        fittedText(tower.id==="military"?"Zusätzlich alle 60s":`Feuerrate  ${tower.rate}/s`, r.x + 22, r.y + 292, r.w-40, 17, 12, "#ecf8ff", "left", 700);
         text(`${tower.cost} Gold`, r.x + r.w / 2, r.y + 329, 19, "#ffd45a", "center", 900);
-        wrapText(tower.description, r.x + r.w / 2, r.y + 365, r.w - 30, 16, 18, "#91aebb");
+        wrapText(tower.description, r.x + r.w / 2, r.y + 365, r.w - 30, 15, 17, "#91aebb", 3);
       });
 
       if(pageCount>1){
@@ -539,7 +569,7 @@
       fillRounded(W/2-245,92,490,54,14,"rgba(5,14,22,.92)",toast.color,2);text(toast.text,W/2,119,21,toast.color,"center",900);ctx.restore();
     }
 
-    function wrapText(value, x, y, maxWidth, fontSize, lineHeight, color) {
+    function wrapText(value, x, y, maxWidth, fontSize, lineHeight, color, maxLines=Infinity) {
       ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -549,10 +579,13 @@
       let line = "";
       for (const word of words) {
         const test = line ? line + " " + word : word;
-        if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = word; }
+        if (ctx.measureText(test).width > maxWidth && line) {
+          if(lines.length===maxLines-1){line+=" …";break;}
+          lines.push(line); line = word;
+        }
         else line = test;
       }
-      lines.push(line);
+      if(lines.length<maxLines)lines.push(line);
       lines.forEach((entry, i) => ctx.fillText(entry, x, y + i * lineHeight));
     }
 
@@ -691,26 +724,32 @@
       ctx.fillStyle = g; ctx.fillRect(0, FIELD_H, W, H - FIELD_H);
       ctx.strokeStyle = "rgba(95,213,255,.3)"; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(0, FIELD_H); ctx.lineTo(W, FIELD_H); ctx.stroke();
-      text("ARSENAL", 70, 684, 17, "#7397a8", "left", 900);
+      text(`ARSENAL  •  MAX. ${placementLimit()} JE TURMTYP`, 70, 684, 17, "#7397a8", "left", 900);
 
       selectedLoadout.forEach((id, i) => {
         const tower = getTowerType(id);
         const currentCost=currentTowerCost(tower);
         const r = hotbarRect(i);
         const selected = selectedTowerType === id;
-        const affordable = gold >= currentCost;
+        const count=placedCounts[id]||0,maxed=count>=placementLimit();
+        const affordable = gold >= currentCost&&!maxed;
         const hover = insideRect(mouse.x, mouse.y, r);
         ctx.save();
         ctx.shadowColor = selected ? tower.color : "rgba(0,0,0,.5)";
         ctx.shadowBlur = selected ? 20 : 8;
-        fillRounded(r.x, r.y, r.w, r.h, 13, selected ? "#1c3744" : hover ? "#142c39" : "#0d202b", selected ? tower.color : "rgba(109,192,222,.3)", selected ? 4 : 2);
+        fillRounded(r.x, r.y, r.w, r.h, 13, selected ? "#1c3744" : hover ? "#142c39" : "#0d202b", maxed?"#e58b62":selected ? tower.color : "rgba(109,192,222,.3)", selected ? 4 : 2);
         ctx.restore();
-        drawTowerModel(tower, r.x + 45, r.y + 50, .66, elapsed * .6);
+        const compact=selectedLoadout.length>=4,five=selectedLoadout.length===5;
+        const iconX=r.x+(five?37:compact?41:45),nameX=r.x+(five?67:compact?76:86);
+        drawTowerModel(tower, iconX, r.y + 50, five?.53:compact?.61:.66, elapsed * .6);
         text(`${i + 1}`, r.x + 13, r.y + 14, 13, "#718d9a", "center", 800);
-        text(tower.short, r.x + 86, r.y + 31, 17, affordable ? tower.accent : "#69747a", "left", 900);
-        drawCoin(r.x + 100, r.y + 69, 11);
-        text(`${currentCost}`, r.x + 118, r.y + 69, 18, affordable ? "#ffd55c" : "#ff6670", "left", 900);
-        if((placedCounts[id]||0)>0)text(`+${Math.round((Math.pow(1.18,placedCounts[id])-1)*100)}%`,r.x+r.w-13,r.y+68,12,"#ffae72","right",850);
+        fittedText(tower.short,nameX,r.y+31,r.w-(nameX-r.x)-9,five?14:17,11,affordable?tower.accent:"#69747a","left",900);
+        if(maxed)text(`LIMIT ${count}/${placementLimit()}`,nameX,r.y+68,five?12:14,"#ffae72","left",900);
+        else{
+          drawCoin(nameX+10,r.y+69,five?9:11);
+          text(`${currentCost}`,nameX+(five?25:29),r.y+69,five?15:18,affordable?"#ffd55c":"#ff6670","left",900);
+          if(count>0)text(`${count}/${placementLimit()}`,r.x+r.w-10,r.y+68,11,"#ffae72","right",850);
+        }
       });
 
       fillRounded(945, 658, 300, 130, 14, "rgba(10,27,37,.94)", "rgba(116,183,208,.25)", 1);
@@ -742,7 +781,9 @@
     function upgradeCost(tower){return Math.round(tower.purchaseCost*(.48+tower.level*.27));}
 
     function hotbarRect(i) {
-      return selectedLoadout.length===4?{x:18+i*224,y:698,w:210,h:84}:{ x: 55 + i * 285, y: 698, w: 260, h: 84 };
+      if(selectedLoadout.length===5)return{x:10+i*180,y:698,w:172,h:84};
+      if(selectedLoadout.length===4)return{x:18+i*224,y:698,w:210,h:84};
+      return{x:55+i*285,y:698,w:260,h:84};
     }
 
     function drawTowerModel(tower, x, y, scale = 1, rotation = 0, level = 1) {
@@ -926,7 +967,7 @@
     function drawPlacementPreview() {
       if (!selectedTowerType || mouse.y >= FIELD_H || !mouse.inside) return;
       const type = getTowerType(selectedTowerType);
-      const valid = isValidPlacement(mouse.x, mouse.y) && gold >= currentTowerCost(type);
+      const valid = isValidPlacement(mouse.x, mouse.y) && gold >= currentTowerCost(type) && (placedCounts[type.id]||0)<placementLimit();
       ctx.save();
       ctx.globalAlpha = .18;
       ctx.fillStyle = valid ? type.color : "#ff4355";
@@ -1406,8 +1447,8 @@
       if (buttonId === 2) { selectedTowerType = null; selectedPlacedTower=null;selectedVehicle=null; return; }
       if (gameState === "MENU") {
         if (insideRect(x,y,{x:430,y:500,w:420,h:78})){const firstOpen=MISSIONS.findIndex((_,i)=>!completedMissions.includes(i)&&isMissionUnlocked(i));missionPage=firstOpen<0?Math.ceil(MISSIONS.length/6)-1:Math.floor(firstOpen/6);gameState = "MAPSELECT";}
-        else if(insideRect(x,y,{x:310,y:602,w:300,h:68}))gameState="SHOP";
-        else if(insideRect(x,y,{x:670,y:602,w:300,h:68})){gameState="CODES";codeInput="";codeMessage="";}
+        else if(insideRect(x,y,{x:480,y:602,w:320,h:68})){shopCategory="towers";shopPage=0;gameState="SHOP";}
+        else if(insideRect(x,y,{x:866,y:20,w:134,h:46})){gameState="CODES";codeInput="";codeMessage="";}
       } else if(gameState==="MAPSELECT"){
         if(insideRect(x,y,{x:25,y:20,w:180,h:50})){gameState="MENU";return;}
         const pages=Math.ceil(MISSIONS.length/6);
@@ -1416,14 +1457,27 @@
         MISSIONS.slice(missionPage*6,missionPage*6+6).forEach((mission,localIndex)=>{const i=missionPage*6+localIndex;if(isMissionUnlocked(i)&&insideRect(x,y,missionCard(localIndex))){selectedMission=i;setMap(mission.map);selectedLoadout=[];loadoutPage=0;gameState="LOADOUT";}});
       } else if(gameState==="SHOP"){
         if(insideRect(x,y,{x:25,y:20,w:180,h:50})){gameState="MENU";return;}
-        const premium=TOWER_TYPES.filter(t=>t.unlock),pages=Math.ceil(premium.length/4);
-        if(insideRect(x,y,slotUnlockRect())&&!extraSlotUnlocked){const cost=35;if(gems>=cost){gems-=cost;extraSlotUnlocked=true;saveProgress();toast={text:"4. Loadout-Slot freigeschaltet!",time:2.2,color:"#8fffb6"};}else toast={text:`Dir fehlen ${cost-gems} Gems`,time:1.7,color:"#ff8ca0"};return;}
-        if(y>720&&x>420&&x<540&&shopPage>0){shopPage--;return;}
-        if(y>720&&x>750&&x<860&&shopPage<pages-1){shopPage++;return;}
-        premium.slice(shopPage*4,shopPage*4+4).forEach((tower,i)=>{if(insideRect(x,y,shopCard(i))&&!unlockedTowers.includes(tower.id)){
-          if(gems>=tower.unlock){gems-=tower.unlock;unlockedTowers.push(tower.id);saveProgress();burst(mouse.x,mouse.y,tower.color,28,130);toast={text:`${tower.name} freigeschaltet!`,time:2.2,color:tower.accent};}
-          else toast={text:`Dir fehlen ${tower.unlock-gems} Gems`,time:1.7,color:"#ff8ca0"};
-        }});
+        for(const category of ["towers","features"]){if(insideRect(x,y,shopTabRect(category))){shopCategory=category;return;}}
+        if(shopCategory==="towers"){
+          const premium=TOWER_TYPES.filter(t=>t.unlock),pages=Math.ceil(premium.length/4);
+          if(y>720&&x>420&&x<540&&shopPage>0){shopPage--;return;}
+          if(y>720&&x>750&&x<860&&shopPage<pages-1){shopPage++;return;}
+          premium.slice(shopPage*4,shopPage*4+4).forEach((tower,i)=>{if(insideRect(x,y,shopCard(i))&&!unlockedTowers.includes(tower.id)){
+            if(gems>=tower.unlock){gems-=tower.unlock;unlockedTowers.push(tower.id);saveProgress();burst(mouse.x,mouse.y,tower.color,28,130);toast={text:`${tower.name} freigeschaltet!`,time:2.2,color:tower.accent};}
+            else toast={text:`Dir fehlen ${tower.unlock-gems} Gems`,time:1.7,color:"#ff8ca0"};
+          }});
+        }else{
+          if(insideRect(x,y,featureCardRect(0))&&!extraSlotUnlocked){
+            if(gems>=SLOT_4_COST){gems-=SLOT_4_COST;extraSlotUnlocked=true;saveProgress();toast={text:"4. Loadout-Slot freigeschaltet!",time:2.2,color:"#8fffb6"};}
+            else toast={text:`Dir fehlen ${SLOT_4_COST-gems} Gems`,time:1.7,color:"#ff8ca0"};
+            return;
+          }
+          if(insideRect(x,y,featureCardRect(1))&&!fifthSlotUnlocked){
+            if(!extraSlotUnlocked){toast={text:"Schalte zuerst Slot 4 frei",time:1.7,color:"#ffca5d"};return;}
+            if(gems>=SLOT_5_COST){gems-=SLOT_5_COST;fifthSlotUnlocked=true;saveProgress();toast={text:"5. Loadout-Slot freigeschaltet!",time:2.2,color:"#8fffb6"};}
+            else toast={text:`Dir fehlen ${SLOT_5_COST-gems} Gems`,time:1.7,color:"#ff8ca0"};
+          }
+        }
       } else if(gameState==="CODES"){
         if(insideRect(x,y,{x:25,y:20,w:180,h:50})){gameState="MENU";return;}
         if(insideRect(x,y,{x:440,y:420,w:400,h:76})&&codeInput.length)redeemCode();
@@ -1468,6 +1522,8 @@
         if (selectedTowerType && y<FIELD_H) {
           const type=getTowerType(selectedTowerType);
           const price=currentTowerCost(type);
+          const limit=placementLimit();
+          if((placedCounts[type.id]||0)>=limit){toast={text:`Maximum: ${limit}× ${type.short}`,time:1.7,color:"#ffae72"};return;}
           if (gold<price) { toast={text:"Nicht genug Gold",time:1.4,color:"#ff6d76"}; return; }
           if (!isValidPlacement(x,y)) { toast={text:"Hier kann kein Turm stehen",time:1.4,color:"#ff6d76"}; return; }
           gold-=price;
@@ -1505,7 +1561,7 @@
         return;
       }
       if (event.key === "Escape") {selectedTowerType=null;selectedPlacedTower=null;selectedVehicle=null;}
-      if (gameState === "PLAYING" && ["1","2","3","4"].includes(event.key)) selectedTowerType=selectedLoadout[Number(event.key)-1] || null;
+      if (gameState === "PLAYING" && ["1","2","3","4","5"].includes(event.key)) selectedTowerType=selectedLoadout[Number(event.key)-1] || null;
       if(gameState==="PLAYING"&&event.code==="Space"){event.preventDefault();const speeds=[1,2,3,5],index=speeds.indexOf(gameSpeed);gameSpeed=speeds[(index+1)%speeds.length];toast={text:`Spieltempo ${gameSpeed}×`,time:1,color:"#8fe8ff"};}
     });
 
