@@ -76,7 +76,11 @@
       menu: "assets/ui/menu-hero.webp",
       emerald: "assets/maps/emerald-pass.webp",
       frost: "assets/maps/frost-rift.webp",
-      volcanic: "assets/maps/volcanic-core.webp"
+      volcanic: "assets/maps/volcanic-core.webp",
+      towerCore: "assets/towers/core.webp",
+      towerAdvanced: "assets/towers/advanced.webp",
+      towerSupport: "assets/towers/support.webp",
+      towerAir: "assets/towers/air.webp"
     };
     const art = {};
     let artReady = false;
@@ -320,6 +324,12 @@
       brute: { name: "Rock Brute", hp: 520, speed: 31, reward: 52, radius: 31, color: "#c27a47", armor: .12 },
       swarm: { name: "Swarm Runner", hp: 34, speed: 135, reward: 10, radius: 14, color: "#ff82d5" },
       boss: { name: "Boss Monster", hp: 1000, speed: 35, reward: 135, radius: 38, color: "#e64444" }
+    };
+    const TOWER_ART = {
+      gun:["towerCore",0,0],laser:["towerCore",1,0],ice:["towerCore",0,1],rocket:["towerCore",1,1],
+      tesla:["towerAdvanced",0,0],poison:["towerAdvanced",1,0],plasma:["towerAdvanced",0,1],sniper:["towerAdvanced",1,1],
+      sun:["towerSupport",0,0],mortar:["towerSupport",1,0],chrono:["towerSupport",0,1],military:["towerSupport",1,1],
+      helicopter:["towerAir",0,0],airplane:["towerAir",1,0]
     };
 
     function loadProgress() {
@@ -874,11 +884,10 @@
       drawGem(302,49,14);text(`${gems}`,324,49,22,"#e7c5ff","left",950);
       text(`WAVE ${Math.max(1, wave)}/${MISSIONS[selectedMission].waves}`, 395, 49, 23, "#8be7ff", "left", 950);
       if (!waveActive && nextWaveCountdown > 0) {
-        fillRounded(895, 18, 365, 62, 16, "rgba(5,15,24,.9)", "rgba(255,207,77,.45)", 2);
-        text(`Next Wave in ${Math.ceil(nextWaveCountdown)}`, 1078, 49, 23, "#ffd65a", "center", 900);
+        const wr=waveStartButtonRect(),hover=insideRect(mouse.x,mouse.y,wr);fillRounded(wr.x,wr.y,wr.w,wr.h,13,hover?"#8f661c":"rgba(46,36,15,.94)",hover?"#fff0a3":"rgba(255,207,77,.62)",hover?3:2);
+        text(wave===0?"START WAVE":"NEXT WAVE",wr.x+wr.w/2,wr.y+20,16,"#fff1a3","center",950);text(`${Math.ceil(nextWaveCountdown)}s  •  TAP TO START`,wr.x+wr.w/2,wr.y+43,11,"#d5b968","center",800);
       } else if (waveActive) {
-        fillRounded(990, 18, 270, 62, 16, "rgba(5,15,24,.9)", "rgba(127,220,255,.25)", 2);
-        text(`${enemies.length + waveQueue.length} Enemies`, 1125, 49, 21, "#d8f6ff", "center", 800);
+        const wr=waveStartButtonRect();fillRounded(wr.x,wr.y,wr.w,wr.h,13,"rgba(5,15,24,.9)","rgba(127,220,255,.25)",2);text(`${enemies.length + waveQueue.length}`,wr.x+44,wr.y+31,24,"#fff","center",950);text("ENEMIES",wr.x+126,wr.y+31,14,"#a9d6e7","center",850);
       }
       [1,2,3,5].forEach((speed,i)=>{
         const r=speedButtonRect(i),active=gameSpeed===speed,hover=insideRect(mouse.x,mouse.y,r);
@@ -892,6 +901,7 @@
 
     function speedButtonRect(i){return{x:640+i*61,y:26,w:52,h:46};}
     function pauseButtonRect(){return{x:936,y:26,w:48,h:46};}
+    function waveStartButtonRect(){return{x:995,y:18,w:208,h:62};}
     function soundButtonRect(){return{x:1212,y:26,w:40,h:46};}
 
     function drawHeart(x, y, size, color) {
@@ -992,7 +1002,19 @@
       return{x:55+i*285,y:698,w:260,h:84};
     }
 
+    function drawTowerArtwork(tower,x,y,scale=1,level=1){
+      const sprite=TOWER_ART[tower.id],image=sprite&&art[sprite[0]];
+      if(!image)return false;
+      const cell=image.width/2,size=112*scale;
+      ctx.save();ctx.translate(x,y);ctx.shadowColor=tower.color;ctx.shadowBlur=level>=4?22:12;
+      if(level>=2){ctx.globalAlpha=.18;ctx.fillStyle=tower.color;ctx.beginPath();ctx.arc(0,7,size*.48+level*2,0,TAU);ctx.fill();ctx.globalAlpha=1;ctx.strokeStyle=level>=4?"#ffe28a":tower.accent;ctx.lineWidth=2+level;ctx.beginPath();ctx.arc(0,7,size*.43+level*2,0,TAU);ctx.stroke();}
+      ctx.drawImage(image,sprite[1]*cell,sprite[2]*cell,cell,cell,-size/2,-size/2,size,size);
+      for(let i=1;i<level;i++){ctx.fillStyle=level>=4?"#ffe37a":tower.color;ctx.beginPath();ctx.moveTo(-10+(i-1)*10,size*.39);ctx.lineTo(-6+(i-1)*10,size*.34);ctx.lineTo(-2+(i-1)*10,size*.39);ctx.lineTo(-6+(i-1)*10,size*.44);ctx.closePath();ctx.fill();}
+      ctx.restore();return true;
+    }
+
     function drawTowerModel(tower, x, y, scale = 1, rotation = 0, level = 1) {
+      if(drawTowerArtwork(tower,x,y,scale,level))return;
       ctx.save();
       ctx.translate(x, y);
       ctx.scale(scale, scale);
@@ -1215,7 +1237,7 @@
       waveQueue = [];
       spawnTimer = 0;
       spawnedThisWave = 0;
-      nextWaveCountdown = 1.2;
+      nextWaveCountdown = 12;
       gameSpeed = 1;
       gamePaused = !tutorialComplete;
       tutorialStep = tutorialComplete ? -1 : 0;
@@ -1640,7 +1662,7 @@
         {title:"CHOOSE YOUR TOWER",body:"Tap a tower card in the arsenal. Each tower has a unique role.",accent:"#ffd45a"},
         {title:"BUILD OFF THE ROAD",body:"Tap open ground to place it. The colored circle shows its attack range.",accent:"#70e9b0"},
         {title:"UPGRADE & ADAPT",body:"Tap a placed tower to upgrade, change its target, or sell it.",accent:"#bd8cff"},
-        {title:"CONTROL THE BATTLE",body:"Use 1×–5× speed and pause at any time. Defend the blue core.",accent:"#71ddff"}
+        {title:"CONTROL THE BATTLE",body:"Start waves when ready, use 1×–5× speed, and pause at any time. Defend the blue core.",accent:"#71ddff"}
       ],step=steps[tutorialStep];
       ctx.save();ctx.fillStyle="rgba(2,7,12,.74)";ctx.fillRect(0,0,W,H);
       fillRounded(250,150,780,520,26,"rgba(7,22,31,.97)",step.accent,3);
@@ -1772,6 +1794,7 @@
       } else if (gameState === "PLAYING") {
         if(insideRect(x,y,pauseButtonRect())){gamePaused=true;return;}
         if(insideRect(x,y,soundButtonRect())){soundEnabled=!soundEnabled;saveProgress();return;}
+        if(!waveActive&&nextWaveCountdown>0&&insideRect(x,y,waveStartButtonRect())){nextWaveCountdown=0;beginWave();return;}
         for(let i=0;i<4;i++)if(insideRect(x,y,speedButtonRect(i))){gameSpeed=[1,2,3,5][i];toast={text:`Game speed ${gameSpeed}×`,time:1,color:"#8fe8ff"};return;}
         if(selectedPlacedTower&&insideRect(x,y,upgradeButtonRect())){
           const cost=upgradeCost(selectedPlacedTower);

@@ -27,6 +27,7 @@ Rewarded Ads intentionally work only inside the CrazyGames environment. The ad b
 **Controls**
 
 - Mouse / touch: use menus, place towers, select towers, upgrade, sell, and change targeting
+- Start Wave button: launch the next attack immediately when your defense is ready
 - Right click or tap the selected arsenal card again: cancel tower placement
 - Number keys 1–5: select a tower from the arsenal
 - Spacebar: cycle through 1×, 2×, 3×, and 5× game speed
@@ -34,7 +35,7 @@ Rewarded Ads intentionally work only inside the CrazyGames environment. The ad b
 
 **Description**
 
-Build the ultimate defense across lush floating islands, frozen rifts, and volcanic strongholds. Choose your loadout, place and upgrade 14 specialized towers, deploy helicopters, aircraft, and military vehicles, then adapt their targeting to survive 18 increasingly brutal missions. Earn Gems every three cleared waves, defeat multi-boss assaults, unlock new towers and loadout slots, and master every battlefield on your way to the Final Stand.
+Build the ultimate defense across lush floating islands, frozen rifts, and volcanic strongholds. Choose your loadout, place and upgrade 14 specialized high-detail towers, deploy helicopters, aircraft, and military vehicles, then adapt their targeting to survive 18 increasingly brutal missions. Start each assault when your defense is ready, earn Gems every three cleared waves, defeat multi-boss attacks, unlock new towers and loadout slots, and master every battlefield on your way to the Final Stand.
 
 **Progress**
 
