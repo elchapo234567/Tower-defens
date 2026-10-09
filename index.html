@@ -77,10 +77,21 @@
       emerald: "assets/maps/emerald-pass.webp",
       frost: "assets/maps/frost-rift.webp",
       volcanic: "assets/maps/volcanic-core.webp",
-      towerCore: "assets/towers/core.webp",
-      towerAdvanced: "assets/towers/advanced.webp",
-      towerSupport: "assets/towers/support.webp",
-      towerAir: "assets/towers/air.webp"
+      levelGun: "assets/towers/levels/gun.webp",
+      levelLaser: "assets/towers/levels/laser.webp",
+      levelIce: "assets/towers/levels/ice.webp",
+      levelRocket: "assets/towers/levels/rocket.webp",
+      levelTesla: "assets/towers/levels/tesla.webp",
+      levelPoison: "assets/towers/levels/poison.webp",
+      levelPlasma: "assets/towers/levels/plasma.webp",
+      levelSniper: "assets/towers/levels/sniper.webp",
+      levelSun: "assets/towers/levels/sun.webp",
+      levelHelicopter: "assets/towers/levels/helicopter.webp",
+      levelAirplane: "assets/towers/levels/airplane.webp",
+      levelMortar: "assets/towers/levels/mortar.webp",
+      levelChrono: "assets/towers/levels/chrono.webp",
+      levelMilitary: "assets/towers/levels/military.webp",
+      levelVehicles: "assets/towers/levels/vehicles.webp"
     };
     const art = {};
     let artReady = false;
@@ -122,7 +133,8 @@
     let tutorialFromMenu = false;
     let soundEnabled = true;
     let audioContext = null;
-    let lastShotSound = 0;
+    let audioNoiseBuffer = null;
+    const lastSoundAt = {};
     let toast = { text: "", time: 0, color: "#fff" };
     let gems = 0;
     let bestWave = 0;
@@ -164,27 +176,36 @@
       }
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
       if (!AudioCtx) return;
-      try { audioContext = new AudioCtx(); } catch (_) { audioContext = null; }
+      try {
+        audioContext = new AudioCtx();
+        audioNoiseBuffer=audioContext.createBuffer(1,audioContext.sampleRate,audioContext.sampleRate);
+        const data=audioNoiseBuffer.getChannelData(0);for(let i=0;i<data.length;i++)data[i]=Math.random()*2-1;
+      } catch (_) { audioContext = null;audioNoiseBuffer=null; }
     }
 
-    function sfx(name) {
+    function sfx(name,variant="") {
       if (!soundEnabled || !audioContext) return;
       const now = audioContext.currentTime;
-      const presets = {
-        click: [420, .035, "sine", .025], build: [180, .11, "square", .055],
-        upgrade: [420, .2, "triangle", .06], wave: [240, .3, "sawtooth", .045],
-        hit: [95, .09, "square", .05], win: [620, .5, "triangle", .07],
-        lose: [110, .45, "sawtooth", .045], shoot: [300, .025, "square", .012]
-      };
-      const p = presets[name]; if (!p) return;
-      if (name === "shoot" && now - lastShotSound < .08) return;
-      if (name === "shoot") lastShotSound = now;
-      const osc = audioContext.createOscillator(), gain = audioContext.createGain();
-      osc.type = p[2]; osc.frequency.setValueAtTime(p[0], now);
-      if (name === "upgrade" || name === "win") osc.frequency.exponentialRampToValueAtTime(p[0] * 1.7, now + p[1]);
-      else osc.frequency.exponentialRampToValueAtTime(Math.max(45, p[0] * .65), now + p[1]);
-      gain.gain.setValueAtTime(p[3], now); gain.gain.exponentialRampToValueAtTime(.0001, now + p[1]);
-      osc.connect(gain); gain.connect(audioContext.destination); osc.start(now); osc.stop(now + p[1]);
+      const key=`${name}:${variant}`,minimum=name==="shoot"?((variant==="gun"||variant==="helicopter")?0.11:0.18):name==="explosion"?0.2:0.025;
+      if(now-(lastSoundAt[key]||-99)<minimum)return;lastSoundAt[key]=now;
+      const tone=(start,end,duration,type="sine",volume=.025,delay=0)=>{const osc=audioContext.createOscillator(),gain=audioContext.createGain(),t=now+delay;osc.type=type;osc.frequency.setValueAtTime(start,t);osc.frequency.exponentialRampToValueAtTime(Math.max(30,end),t+duration);gain.gain.setValueAtTime(.0001,t);gain.gain.exponentialRampToValueAtTime(volume,t+.008);gain.gain.exponentialRampToValueAtTime(.0001,t+duration);osc.connect(gain);gain.connect(audioContext.destination);osc.start(t);osc.stop(t+duration+.02);};
+      const noise=(duration,volume=.02,cutoff=900,delay=0)=>{if(!audioNoiseBuffer)return;const source=audioContext.createBufferSource(),filter=audioContext.createBiquadFilter(),gain=audioContext.createGain(),t=now+delay;source.buffer=audioNoiseBuffer;filter.type="lowpass";filter.frequency.setValueAtTime(cutoff,t);gain.gain.setValueAtTime(volume,t);gain.gain.exponentialRampToValueAtTime(.0001,t+duration);source.connect(filter);filter.connect(gain);gain.connect(audioContext.destination);source.start(t,Math.random()*.6,duration);};
+      if(name==="click"){tone(560,430,.055,"sine",.018);}
+      else if(name==="build"){noise(.1,.027,520);tone(115,60,.16,"sine",.052);tone(510,650,.1,"triangle",.018,.045);}
+      else if(name==="upgrade"){[440,554,659].forEach((f,i)=>tone(f,f*1.04,.16,"triangle",.035,i*.07));tone(110,75,.22,"sine",.035);}
+      else if(name==="wave"){[147,196,247].forEach((f,i)=>tone(f,f*.92,.34,"sawtooth",.018,i*.045));noise(.16,.012,650);}
+      else if(name==="hit"){noise(.12,.035,380);tone(85,45,.14,"sine",.045);}
+      else if(name==="explosion"){noise(.26,.045,620);tone(95,38,.28,"sine",.06);}
+      else if(name==="win"){[392,494,587,784].forEach((f,i)=>tone(f,f*1.02,.3,"triangle",.038,i*.11));}
+      else if(name==="lose"){[220,174,130].forEach((f,i)=>tone(f,f*.7,.3,"sawtooth",.022,i*.12));}
+      else if(name==="shoot"){
+        if(["laser","plasma"].includes(variant)){tone(variant==="laser"?880:620,variant==="laser"?310:180,.085,"sine",.022);}
+        else if(["rocket","mortar","airplane"].includes(variant)){noise(.09,.022,520);tone(105,62,.12,"sine",.026);}
+        else if(variant==="ice"){tone(960,680,.08,"triangle",.018);tone(1420,980,.06,"sine",.009);}
+        else if(variant==="tesla"){tone(520,1150,.065,"sawtooth",.015);noise(.04,.009,2100);}
+        else if(variant==="sniper"){noise(.07,.03,1200);tone(150,62,.13,"square",.03);}
+        else {noise(.035,.015,1500);tone(185,105,.045,"square",.014);}
+      }
     }
 
     const MAPS = [
@@ -326,10 +347,10 @@
       boss: { name: "Boss Monster", hp: 1000, speed: 35, reward: 135, radius: 38, color: "#e64444" }
     };
     const TOWER_ART = {
-      gun:["towerCore",0,0],laser:["towerCore",1,0],ice:["towerCore",0,1],rocket:["towerCore",1,1],
-      tesla:["towerAdvanced",0,0],poison:["towerAdvanced",1,0],plasma:["towerAdvanced",0,1],sniper:["towerAdvanced",1,1],
-      sun:["towerSupport",0,0],mortar:["towerSupport",1,0],chrono:["towerSupport",0,1],military:["towerSupport",1,1],
-      helicopter:["towerAir",0,0],airplane:["towerAir",1,0]
+      gun:["levelGun",2.55,true],laser:["levelLaser",.55,true],ice:["levelIce",0,false],rocket:["levelRocket",-2.2,true],
+      tesla:["levelTesla",0,false],poison:["levelPoison",.15,true],plasma:["levelPlasma",.2,true],sniper:["levelSniper",.15,true],
+      sun:["levelSun",0,false],helicopter:["levelHelicopter",.75,true],airplane:["levelAirplane",Math.PI/2,true],
+      mortar:["levelMortar",-2.05,true],chrono:["levelChrono",0,false],military:["levelMilitary",0,false]
     };
 
     function loadProgress() {
@@ -451,7 +472,8 @@
       grad.addColorStop(0, enabled ? (hover ? lighten(color, 35) : lighten(color, 18)) : "#52606a");
       grad.addColorStop(1, enabled ? color : "#323b43");
       fillRounded(rect.x, rect.y + (hover ? -3 : 0), rect.w, rect.h, 15, grad, enabled ? "rgba(255,255,255,.55)" : "rgba(255,255,255,.12)", 2);
-      text(label, rect.x + rect.w / 2, rect.y + rect.h / 2 - (subtitle ? 9 : 0) + (hover ? -3 : 0), subtitle ? 26 : 30, enabled ? "#fff" : "#9da7ad", "center", 900);
+      const labelSize=subtitle?Math.min(26,rect.h*.38):Math.min(30,rect.h*.45);
+      fittedText(label, rect.x + rect.w / 2, rect.y + rect.h / 2 - (subtitle ? 9 : 0) + (hover ? -3 : 0), rect.w-18, labelSize, 10, enabled ? "#fff" : "#9da7ad", "center", 900);
       if (subtitle) text(subtitle, rect.x + rect.w / 2, rect.y + rect.h / 2 + 18 + (hover ? -3 : 0), 14, enabled ? "rgba(255,255,255,.82)" : "#7f898e", "center", 700);
       ctx.restore();
       return hover;
@@ -549,7 +571,7 @@
         fillRounded(r.x,r.y-(hover?4:0),r.w,r.h,18,unlocked?"#102635":"#0a1720",complete?"#ffd45a":hover?mission.color:"rgba(125,203,232,.25)",complete?3:hover?4:2);ctx.restore();
         const preview={x:r.x+15,y:r.y+15,w:130,h:r.h-30};const pg=ctx.createLinearGradient(0,preview.y,0,preview.y+preview.h);pg.addColorStop(0,map.ground[0]);pg.addColorStop(1,map.ground[1]);fillRounded(preview.x,preview.y,preview.w,preview.h,12,pg);
         const previewArt=[art.emerald,art.frost,art.volcanic][mission.map];if(previewArt){ctx.save();roundedRect(preview.x,preview.y,preview.w,preview.h,12);ctx.clip();const targetAspect=preview.w/preview.h,imageAspect=previewArt.width/previewArt.height;let sx=0,sy=0,sw=previewArt.width,sh=previewArt.height;if(imageAspect>targetAspect){sw=sh*targetAspect;sx=(previewArt.width-sw)/2;}else{sh=sw/targetAspect;sy=(previewArt.height-sh)/2;}ctx.drawImage(previewArt,sx,sy,sw,sh,preview.x,preview.y,preview.w,preview.h);ctx.fillStyle="rgba(2,9,14,.2)";ctx.fillRect(preview.x,preview.y,preview.w,preview.h);ctx.restore();}
-        drawMiniPath(map.path,preview,map.road);
+        if(!previewArt)drawMiniPath(map.path,preview,map.road);
         if(!unlocked){ctx.fillStyle="rgba(2,7,11,.7)";ctx.fillRect(preview.x,preview.y,preview.w,preview.h);text("🔒",preview.x+preview.w/2,preview.y+preview.h/2,30,"#82929a","center",800);}
         text(`MISSION ${String(i+1).padStart(2,"0")}`,r.x+165,r.y+20,11,unlocked?"#668794":"#3c4c53","left",900);
         fittedText(mission.name,r.x+165,r.y+43,180,18,12,unlocked?mission.color:"#52636c","left",950);
@@ -598,7 +620,7 @@
           const r=shopCard(i), unlocked=unlockedTowers.includes(tower.id), affordable=gems>=tower.unlock;
           ctx.save();ctx.shadowColor=unlocked?tower.color:"rgba(0,0,0,.5)";ctx.shadowBlur=unlocked?18:7;
           fillRounded(r.x,r.y,r.w,r.h,18,"#102532",unlocked?tower.color:"rgba(126,191,216,.25)",unlocked?3:2);ctx.restore();
-          drawTowerModel(tower,r.x+82,r.y+98,1.15,elapsed*.4);
+          drawTowerModel(tower,r.x+82,r.y+98,1.15,0);
           fittedText(tower.name,r.x+155,r.y+42,295,22,14,tower.accent,"left",950);
           fittedText(tower.id==="military"?"Vehicle 180 HP  •  Deploy 60s":`Damage ${tower.damage}  •  Range ${tower.range}`,r.x+155,r.y+78,295,15,11,"#c4d9e1","left",700);
           wrapText(tower.description,r.x+300,r.y+112,290,15,17,"#86a5b2",3);
@@ -682,7 +704,7 @@
           const r=shopCard(i),hover=insideRect(mouse.x,mouse.y,r);
           ctx.save();ctx.shadowColor=hover?tower.color:"rgba(0,0,0,.5)";ctx.shadowBlur=hover?22:7;
           fillRounded(r.x,r.y-(hover?3:0),r.w,r.h,18,"#102532",hover?tower.color:"rgba(126,191,216,.25)",hover?4:2);ctx.restore();
-          drawTowerModel(tower,r.x+82,r.y+98,1.15,elapsed*.4);
+          drawTowerModel(tower,r.x+82,r.y+98,1.15,0);
           fittedText(tower.name,r.x+155,r.y+42,295,22,14,tower.accent,"left",950);
           wrapText(tower.description,r.x+300,r.y+94,290,15,17,"#86a5b2",3);
           text("UNLOCK FOR FREE",r.x+300,r.y+172,17,"#ffd45a","center",950);
@@ -735,7 +757,7 @@
           fillRounded(r.x + 13, r.y + 13, 42, 42, 21, "#ffd34e");
           text("✓", r.x + 34, r.y + 34, 25, "#15212b", "center", 950);
         }
-        drawTowerModel(tower, r.x + r.w / 2, r.y + 105, 1.25, elapsed * .45);
+        drawTowerModel(tower, r.x + r.w / 2, r.y + 105, 1.25, 0);
         fittedText(tower.name, r.x + r.w / 2, r.y + 184, r.w - 28, 18, 12, tower.accent, "center", 900);
         fittedText(tower.id==="military"?"Vehicle  180 HP":`Damage  ${tower.damage}`, r.x + 22, r.y + 226, r.w-40, 17, 12, "#ecf8ff", "left", 700);
         fittedText(tower.id==="military"?"New unit / wave":`Range  ${tower.range}`, r.x + 22, r.y + 259, r.w-40, 17, 12, "#ecf8ff", "left", 700);
@@ -800,39 +822,11 @@
     function drawField() {
       const map=MAPS[selectedMap];
       const mapImage=[art.emerald,art.frost,art.volcanic][selectedMap];
-      if(mapImage){ctx.drawImage(mapImage,0,0,W,FIELD_H);ctx.fillStyle=selectedMap===2?"rgba(22,4,4,.28)":"rgba(2,12,17,.24)";ctx.fillRect(0,0,W,FIELD_H);}
-      else {const bg = ctx.createLinearGradient(0, 0, 0, FIELD_H);bg.addColorStop(0, map.ground[0]);bg.addColorStop(1, map.ground[1]);ctx.fillStyle = bg;ctx.fillRect(0, 0, W, FIELD_H);}
-
-      ctx.fillStyle = selectedMap===1?"rgba(189,239,255,.1)":selectedMap===2?"rgba(255,134,72,.09)":"rgba(136,214,130,.08)";
-      for (let y = 18; y < FIELD_H; y += 34) {
-        for (let x = (Math.floor(y / 34) % 2) * 18; x < W; x += 36) {
-          ctx.beginPath();
-          ctx.moveTo(x, y + 5); ctx.lineTo(x + 4, y - 4); ctx.lineTo(x + 7, y + 5); ctx.fill();
-        }
-      }
-
-      ctx.save();
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      ctx.beginPath();
-      ctx.moveTo(path[0].x, path[0].y);
-      for (let i = 1; i < path.length; i++) ctx.lineTo(path[i].x, path[i].y);
-      ctx.strokeStyle = selectedMap===2?"#1d1415":"#14251f";
-      ctx.lineWidth = pathWidths + 14;
-      ctx.stroke();
-      ctx.strokeStyle = map.road;
-      ctx.lineWidth = pathWidths;
-      ctx.stroke();
-      ctx.setLineDash([13, 16]);
-      ctx.strokeStyle = "rgba(255,235,180,.23)";
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      ctx.restore();
-
-      for (let i = 0; i < path.length; i++) {
-        const p = path[i];
-        ctx.fillStyle = "rgba(255,255,255,.05)";
-        ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, TAU); ctx.fill();
+      if(mapImage){ctx.drawImage(mapImage,0,0,W,FIELD_H);ctx.fillStyle=selectedMap===2?"rgba(20,3,4,.08)":"rgba(2,12,17,.06)";ctx.fillRect(0,0,W,FIELD_H);}
+      else {
+        const bg = ctx.createLinearGradient(0, 0, 0, FIELD_H);bg.addColorStop(0, map.ground[0]);bg.addColorStop(1, map.ground[1]);ctx.fillStyle = bg;ctx.fillRect(0, 0, W, FIELD_H);
+        ctx.save();ctx.lineCap="round";ctx.lineJoin="round";ctx.beginPath();ctx.moveTo(path[0].x,path[0].y);for(let i=1;i<path.length;i++)ctx.lineTo(path[i].x,path[i].y);
+        ctx.strokeStyle=selectedMap===2?"#1d1415":"#14251f";ctx.lineWidth=pathWidths+14;ctx.stroke();ctx.strokeStyle=map.road;ctx.lineWidth=pathWidths;ctx.stroke();ctx.setLineDash([13,16]);ctx.strokeStyle="rgba(255,235,180,.35)";ctx.lineWidth=3;ctx.stroke();ctx.restore();
       }
 
       drawPortal(path[0].x + 35, path[0].y, "#b76cff", false);
@@ -953,7 +947,7 @@
         ctx.restore();
         const compact=selectedLoadout.length>=4,five=selectedLoadout.length===5;
         const iconX=r.x+(five?37:compact?41:45),nameX=r.x+(five?67:compact?76:86);
-        drawTowerModel(tower, iconX, r.y + 50, five?.53:compact?.61:.66, elapsed * .6);
+        drawTowerModel(tower, iconX, r.y + 50, five?.53:compact?.61:.66, 0);
         text(`${i + 1}`, r.x + 13, r.y + 14, 13, "#718d9a", "center", 800);
         fittedText(tower.short,nameX,r.y+31,r.w-(nameX-r.x)-9,five?14:17,11,affordable?tower.accent:"#69747a","left",900);
         if(maxed)text(`LIMIT ${count}/${placementLimit()}`,nameX,r.y+68,five?12:14,"#ffae72","left",900);
@@ -1002,19 +996,17 @@
       return{x:55+i*285,y:698,w:260,h:84};
     }
 
-    function drawTowerArtwork(tower,x,y,scale=1,level=1){
+    function drawTowerArtwork(tower,x,y,scale=1,level=1,rotation=0){
       const sprite=TOWER_ART[tower.id],image=sprite&&art[sprite[0]];
       if(!image)return false;
-      const cell=image.width/2,size=112*scale;
-      ctx.save();ctx.translate(x,y);ctx.shadowColor=tower.color;ctx.shadowBlur=level>=4?22:12;
-      if(level>=2){ctx.globalAlpha=.18;ctx.fillStyle=tower.color;ctx.beginPath();ctx.arc(0,7,size*.48+level*2,0,TAU);ctx.fill();ctx.globalAlpha=1;ctx.strokeStyle=level>=4?"#ffe28a":tower.accent;ctx.lineWidth=2+level;ctx.beginPath();ctx.arc(0,7,size*.43+level*2,0,TAU);ctx.stroke();}
-      ctx.drawImage(image,sprite[1]*cell,sprite[2]*cell,cell,cell,-size/2,-size/2,size,size);
-      for(let i=1;i<level;i++){ctx.fillStyle=level>=4?"#ffe37a":tower.color;ctx.beginPath();ctx.moveTo(-10+(i-1)*10,size*.39);ctx.lineTo(-6+(i-1)*10,size*.34);ctx.lineTo(-2+(i-1)*10,size*.39);ctx.lineTo(-6+(i-1)*10,size*.44);ctx.closePath();ctx.fill();}
+      const cell=image.width/2,size=110*scale,index=Math.max(0,Math.min(3,level-1)),col=index%2,row=Math.floor(index/2);
+      ctx.save();ctx.translate(x,y);if(sprite[2])ctx.rotate(rotation-sprite[1]);ctx.shadowColor=tower.color;ctx.shadowBlur=level>=4?13:8;
+      ctx.drawImage(image,col*cell,row*cell,cell,cell,-size/2,-size/2,size,size);
       ctx.restore();return true;
     }
 
     function drawTowerModel(tower, x, y, scale = 1, rotation = 0, level = 1) {
-      if(drawTowerArtwork(tower,x,y,scale,level))return;
+      if(drawTowerArtwork(tower,x,y,scale,level,rotation))return;
       ctx.save();
       ctx.translate(x, y);
       ctx.scale(scale, scale);
@@ -1104,12 +1096,19 @@
     }
 
     function drawAirPad(tower){
-      ctx.save();ctx.translate(tower.x,tower.y);ctx.fillStyle="rgba(7,19,25,.88)";ctx.beginPath();ctx.arc(0,0,31,0,TAU);ctx.fill();ctx.strokeStyle=tower.type.color;ctx.lineWidth=3;ctx.stroke();
-      text(tower.type.id==="helicopter"?"H":"✦",0,1,24,tower.type.accent,"center",950);ctx.restore();
+      ctx.save();ctx.translate(tower.x,tower.y);ctx.fillStyle="rgba(7,19,25,.82)";ctx.beginPath();ctx.arc(0,0,34,0,TAU);ctx.fill();ctx.strokeStyle=tower.type.color;ctx.lineWidth=3;ctx.setLineDash([8,5]);ctx.stroke();ctx.setLineDash([]);
+      text(tower.type.id==="helicopter"?"H":"A",0,1,19,tower.type.accent,"center",950);ctx.restore();
     }
 
     function drawVehicle(vehicle){
       if(selectedVehicle===vehicle&&vehicle.range>0){ctx.save();ctx.globalAlpha=.18;ctx.fillStyle="#aee378";ctx.beginPath();ctx.arc(vehicle.x,vehicle.y,vehicle.range,0,TAU);ctx.fill();ctx.globalAlpha=.8;ctx.strokeStyle="#cfff99";ctx.lineWidth=2;ctx.stroke();ctx.restore();}
+      const vehicleArt=art.levelVehicles;
+      if(vehicleArt){
+        const cell=vehicleArt.width/2,index=Math.max(0,Math.min(3,vehicle.level-1)),size=vehicle.level===4?92:78;
+        ctx.save();ctx.translate(vehicle.x,vehicle.y);ctx.rotate(vehicle.angle-2.35);ctx.shadowColor="#789956";ctx.shadowBlur=9;ctx.drawImage(vehicleArt,(index%2)*cell,Math.floor(index/2)*cell,cell,cell,-size/2,-size/2,size,size);ctx.restore();
+        if(vehicle.level>=3){ctx.save();ctx.translate(vehicle.x,vehicle.y);ctx.rotate(vehicle.turretAngle??vehicle.angle);ctx.shadowColor="#dfffad";ctx.shadowBlur=5;ctx.fillStyle=vehicle.level===4?"#526b3e":"#607d48";ctx.beginPath();ctx.arc(0,0,vehicle.level===4?10:8,0,TAU);ctx.fill();ctx.strokeStyle="#ddf7ba";ctx.lineWidth=vehicle.level===4?7:5;ctx.beginPath();ctx.moveTo(3,0);ctx.lineTo(vehicle.level===4?37:28,0);ctx.stroke();ctx.restore();}
+        const w=vehicle.level===4?68:50,ratio=Math.max(0,vehicle.hp/vehicle.maxHp);fillRounded(vehicle.x-w/2,vehicle.y-38,w,7,4,"rgba(5,10,7,.85)");if(ratio>0)fillRounded(vehicle.x-w/2+2,vehicle.y-36,(w-4)*ratio,3,2,ratio>.45?"#9ad760":"#ff875c");return;
+      }
       ctx.save();ctx.translate(vehicle.x,vehicle.y);ctx.rotate(vehicle.angle);ctx.shadowColor="#6e9f4c";ctx.shadowBlur=9;
       if(vehicle.level<4){
         ctx.fillStyle="#172218";fillRounded(-24,-15,48,30,7,"#18251b");ctx.fillStyle=vehicle.level===1?"#668a49":"#789956";fillRounded(-20,-12,40,24,6,ctx.fillStyle,"#b9db8f",2);
@@ -1155,7 +1154,7 @@
     function deployVehicle(base,waveStart=false){
       if(!base||base.type.id!=="military")return;
       const p=pointAtDistance(totalPathLength-25),level=base.level;
-      vehicles.push({base,level,x:p.x,y:p.y,distance:totalPathLength-25,hp:base.vehicleHp,maxHp:base.vehicleHp,speed:base.vehicleSpeed,range:level>=3?base.range:0,cooldown:.2,bombCooldown:1,dead:false,angle:Math.PI});
+      vehicles.push({base,level,x:p.x,y:p.y,distance:totalPathLength-25,hp:base.vehicleHp,maxHp:base.vehicleHp,speed:base.vehicleSpeed,range:level>=3?base.range:0,cooldown:.2,bombCooldown:1,dead:false,angle:Math.PI,turretAngle:Math.PI});
       base.deployTimer=60;
       burst(p.x,p.y,base.type.color,waveStart?20:12,90);
     }
@@ -1168,7 +1167,7 @@
         vehicle.cooldown-=dt;vehicle.bombCooldown-=dt;
         if(vehicle.level>=3&&vehicle.cooldown<=0){
           const target=enemies.filter(e=>!e.dead&&Math.hypot(e.x-vehicle.x,e.y-vehicle.y)<=vehicle.range).sort((a,b)=>b.distance-a.distance)[0];
-          if(target){const damage=vehicle.level===4?34:19;damageEnemy(target,damage,"vehicle");effects.push({type:"gun",x:vehicle.x,y:vehicle.y,tx:target.x,ty:target.y,life:.1,maxLife:.1,color:"#dfff9e"});vehicle.cooldown=vehicle.level===4?.25:.42;}
+          if(target){vehicle.turretAngle=Math.atan2(target.y-vehicle.y,target.x-vehicle.x);const damage=vehicle.level===4?34:19;damageEnemy(target,damage,"vehicle");effects.push({type:"gun",x:vehicle.x,y:vehicle.y,tx:target.x,ty:target.y,life:.1,maxLife:.1,color:"#dfff9e"});sfx("shoot","vehicle");vehicle.cooldown=vehicle.level===4 ? .25 : .42;}
         }
         if(vehicle.level===4&&vehicle.bombCooldown<=0){
           const target=enemies.filter(e=>!e.dead&&Math.hypot(e.x-vehicle.x,e.y-vehicle.y)<=vehicle.range+35).sort((a,b)=>b.distance-a.distance)[0];
@@ -1188,8 +1187,7 @@
       tower.angle = angle;
       if(selectedPlacedTower===tower){ctx.save();ctx.globalAlpha=.18;ctx.fillStyle=tower.type.color;ctx.beginPath();ctx.arc(tower.x,tower.y,tower.range,0,TAU);ctx.fill();ctx.globalAlpha=.8;ctx.strokeStyle=tower.type.color;ctx.lineWidth=2;ctx.stroke();ctx.restore();}
       if(tower.type.id==="helicopter"||tower.type.id==="airplane")drawAirPad(tower);
-      drawTowerModel(tower.type, tx, ty, .9, angle,tower.level);
-      for(let i=0;i<tower.level;i++){ctx.fillStyle=i===0?"#fff":tower.type.color;ctx.beginPath();ctx.arc(tower.x-12+(i-1)*8,tower.y+31,3,0,TAU);ctx.fill();}
+      drawTowerModel(tower.type, tx, ty, tower.type.id==="military"?0.9:0.82, angle,tower.level);
     }
 
     function drawPlacementPreview() {
@@ -1205,7 +1203,7 @@
       ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(mouse.x, mouse.y, type.range, 0, TAU); ctx.stroke();
       ctx.globalAlpha = .72;
-      drawTowerModel(type, mouse.x, mouse.y, .9, -Math.PI / 2);
+      drawTowerModel(type, mouse.x, mouse.y, .82, -Math.PI / 2);
       ctx.restore();
     }
 
@@ -1219,7 +1217,7 @@
     function isValidPlacement(x, y) {
       if (x < 35 || x > W - 35 || y < 105 || y > FIELD_H - 35) return false;
       if (pathSegments.some(seg => distToSegment(x, y, seg.a, seg.b) < pathWidths / 2 + 30)) return false;
-      if (towers.some(t => Math.hypot(x - t.x, y - t.y) < 68)) return false;
+      if (towers.some(t => Math.hypot(x - t.x, y - t.y) < 100)) return false;
       return true;
     }
 
@@ -1364,10 +1362,11 @@
         tower.deployTimer-=dt;if(tower.deployTimer<=0)deployVehicle(tower,false);return;
       }
       if(tower.type.id==="helicopter"||tower.type.id==="airplane"){
-        tower.orbit+=dt*(tower.type.id==="helicopter"?.72:1.05);
+        tower.orbit+=dt*(tower.type.id==="helicopter"?0.72:1.05);
         const radius=tower.type.id==="helicopter"?52:78;
         tower.combatX=tower.x+Math.cos(tower.orbit)*radius;
         tower.combatY=tower.y+Math.sin(tower.orbit)*(tower.type.id==="helicopter"?30:44);
+        if(!tower.target)tower.angle=Math.atan2(Math.cos(tower.orbit)*(tower.type.id==="helicopter"?30:44),-Math.sin(tower.orbit)*radius);
       }else{tower.combatX=tower.x;tower.combatY=tower.y;}
       tower.cooldown -= dt;
       if (tower.target && (tower.target.dead || Math.hypot(tower.target.x - tower.combatX, tower.target.y - tower.combatY) > tower.range)) tower.target = null;
@@ -1378,10 +1377,10 @@
         }
         tower.target = best;
       }
-      if (tower.target) tower.angle = Math.atan2(tower.target.y - tower.y, tower.target.x - tower.x);
+      if (tower.target) tower.angle = Math.atan2(tower.target.y - tower.combatY, tower.target.x - tower.combatX);
       if (tower.target && tower.cooldown <= 0) {
         fireTower(tower, tower.target);
-        sfx("shoot");
+        sfx("shoot",tower.type.id);
         tower.cooldown = 1 / tower.rate;
       }
     }
@@ -1462,6 +1461,7 @@
           }
           burst(impact.x, impact.y, "#ff7a3d", 30, 170);
           effects.push({ type: "explosion", x: impact.x, y: impact.y, life: .42, maxLife: .42, color: effect.color||"#ff7a3d" });
+          sfx("explosion");
           shake = Math.max(shake, 5);
         }
       }
@@ -1816,9 +1816,9 @@
             return;
           }
         }
-        const clickedVehicle=[...vehicles].reverse().find(v=>Math.hypot(x-v.x,y-v.y)<=32);
+        const clickedVehicle=[...vehicles].reverse().find(v=>Math.hypot(x-v.x,y-v.y)<=44);
         if(clickedVehicle){selectedVehicle=clickedVehicle;selectedPlacedTower=null;selectedTowerType=null;return;}
-        const clickedTower=[...towers].reverse().find(t=>Math.hypot(x-t.x,y-t.y)<=35);
+        const clickedTower=[...towers].reverse().find(t=>Math.hypot(x-t.x,y-t.y)<=48);
         if(clickedTower){selectedPlacedTower=clickedTower;selectedVehicle=null;selectedTowerType=null;return;}
         if (selectedTowerType && y<FIELD_H) {
           const type=getTowerType(selectedTowerType);

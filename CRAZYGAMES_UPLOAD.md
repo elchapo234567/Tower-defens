@@ -2,7 +2,9 @@
 
 ## Ready-to-upload build
 
-The file `release/mega-tower-defense-crazygames.zip` is the finished HTML5 game package. `index.html` and the `assets` folder are located directly at the root of the ZIP archive. The game loads the official CrazyGames HTML5 SDK v3 and uses only its Rewarded Ad interface.
+The file `release/mega-tower-defense-crazygames.zip` is the finished HTML5 game package. `index.html` and the `assets` folder are located directly at the root of the ZIP archive. The game loads the official CrazyGames HTML5 SDK v3 and uses only its Rewarded Ad interface. To test outside CrazyGames, extract the ZIP first and serve its directory through a local web server; do not open `index.html` from inside the ZIP viewer.
+
+The build includes three top-down battlefields with roads baked into the artwork, 56 distinct tower upgrade appearances, four military vehicle appearances, directional targeting, and procedural Web Audio effects. No network-hosted art or audio files are needed at runtime.
 
 ## CrazyGames Portal
 
