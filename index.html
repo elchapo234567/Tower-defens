@@ -353,6 +353,12 @@
       mortar:["levelMortar",-2.05,true],chrono:["levelChrono",0,false],military:["levelMilitary",0,false]
     };
 
+    function towerRestAngle(type){return TOWER_ART[type.id]?.[1]||0;}
+    function moveAngleTowards(current,target,maxStep){
+      const delta=Math.atan2(Math.sin(target-current),Math.cos(target-current));
+      return Math.abs(delta)<=maxStep?target:current+Math.sign(delta)*maxStep;
+    }
+
     function loadProgress() {
       try {
         localStorage.removeItem("megaTowerDefenseProgress");
@@ -620,7 +626,7 @@
           const r=shopCard(i), unlocked=unlockedTowers.includes(tower.id), affordable=gems>=tower.unlock;
           ctx.save();ctx.shadowColor=unlocked?tower.color:"rgba(0,0,0,.5)";ctx.shadowBlur=unlocked?18:7;
           fillRounded(r.x,r.y,r.w,r.h,18,"#102532",unlocked?tower.color:"rgba(126,191,216,.25)",unlocked?3:2);ctx.restore();
-          drawTowerModel(tower,r.x+82,r.y+98,1.15,0);
+          drawTowerModel(tower,r.x+82,r.y+98,1.15,towerRestAngle(tower));
           fittedText(tower.name,r.x+155,r.y+42,295,22,14,tower.accent,"left",950);
           fittedText(tower.id==="military"?"Vehicle 180 HP  •  Deploy 60s":`Damage ${tower.damage}  •  Range ${tower.range}`,r.x+155,r.y+78,295,15,11,"#c4d9e1","left",700);
           wrapText(tower.description,r.x+300,r.y+112,290,15,17,"#86a5b2",3);
@@ -704,7 +710,7 @@
           const r=shopCard(i),hover=insideRect(mouse.x,mouse.y,r);
           ctx.save();ctx.shadowColor=hover?tower.color:"rgba(0,0,0,.5)";ctx.shadowBlur=hover?22:7;
           fillRounded(r.x,r.y-(hover?3:0),r.w,r.h,18,"#102532",hover?tower.color:"rgba(126,191,216,.25)",hover?4:2);ctx.restore();
-          drawTowerModel(tower,r.x+82,r.y+98,1.15,0);
+          drawTowerModel(tower,r.x+82,r.y+98,1.15,towerRestAngle(tower));
           fittedText(tower.name,r.x+155,r.y+42,295,22,14,tower.accent,"left",950);
           wrapText(tower.description,r.x+300,r.y+94,290,15,17,"#86a5b2",3);
           text("UNLOCK FOR FREE",r.x+300,r.y+172,17,"#ffd45a","center",950);
@@ -757,7 +763,7 @@
           fillRounded(r.x + 13, r.y + 13, 42, 42, 21, "#ffd34e");
           text("✓", r.x + 34, r.y + 34, 25, "#15212b", "center", 950);
         }
-        drawTowerModel(tower, r.x + r.w / 2, r.y + 105, 1.25, 0);
+        drawTowerModel(tower, r.x + r.w / 2, r.y + 105, 1.25, towerRestAngle(tower));
         fittedText(tower.name, r.x + r.w / 2, r.y + 184, r.w - 28, 18, 12, tower.accent, "center", 900);
         fittedText(tower.id==="military"?"Vehicle  180 HP":`Damage  ${tower.damage}`, r.x + 22, r.y + 226, r.w-40, 17, 12, "#ecf8ff", "left", 700);
         fittedText(tower.id==="military"?"New unit / wave":`Range  ${tower.range}`, r.x + 22, r.y + 259, r.w-40, 17, 12, "#ecf8ff", "left", 700);
@@ -947,7 +953,7 @@
         ctx.restore();
         const compact=selectedLoadout.length>=4,five=selectedLoadout.length===5;
         const iconX=r.x+(five?37:compact?41:45),nameX=r.x+(five?67:compact?76:86);
-        drawTowerModel(tower, iconX, r.y + 50, five?.53:compact?.61:.66, 0);
+        drawTowerModel(tower, iconX, r.y + 50, five?.53:compact?.61:.66, towerRestAngle(tower));
         text(`${i + 1}`, r.x + 13, r.y + 14, 13, "#718d9a", "center", 800);
         fittedText(tower.short,nameX,r.y+31,r.w-(nameX-r.x)-9,five?14:17,11,affordable?tower.accent:"#69747a","left",900);
         if(maxed)text(`LIMIT ${count}/${placementLimit()}`,nameX,r.y+68,five?12:14,"#ffae72","left",900);
@@ -1165,9 +1171,10 @@
         vehicle.distance-=vehicle.speed*dt;const p=pointAtDistance(vehicle.distance);vehicle.x=p.x;vehicle.y=p.y;
         const ahead=pointAtDistance(Math.max(0,vehicle.distance-5));vehicle.angle=Math.atan2(ahead.y-vehicle.y,ahead.x-vehicle.x);
         vehicle.cooldown-=dt;vehicle.bombCooldown-=dt;
-        if(vehicle.level>=3&&vehicle.cooldown<=0){
+        if(vehicle.level>=3){
           const target=enemies.filter(e=>!e.dead&&Math.hypot(e.x-vehicle.x,e.y-vehicle.y)<=vehicle.range).sort((a,b)=>b.distance-a.distance)[0];
-          if(target){vehicle.turretAngle=Math.atan2(target.y-vehicle.y,target.x-vehicle.x);const damage=vehicle.level===4?34:19;damageEnemy(target,damage,"vehicle");effects.push({type:"gun",x:vehicle.x,y:vehicle.y,tx:target.x,ty:target.y,life:.1,maxLife:.1,color:"#dfff9e"});sfx("shoot","vehicle");vehicle.cooldown=vehicle.level===4 ? .25 : .42;}
+          if(target){vehicle.turretAngle=Math.atan2(target.y-vehicle.y,target.x-vehicle.x);if(vehicle.cooldown<=0){const damage=vehicle.level===4?34:19;damageEnemy(target,damage,"vehicle");effects.push({type:"gun",x:vehicle.x,y:vehicle.y,tx:target.x,ty:target.y,life:.1,maxLife:.1,color:"#dfff9e"});sfx("shoot","vehicle");vehicle.cooldown=vehicle.level===4 ? .25 : .42;}}
+          else vehicle.turretAngle=moveAngleTowards(vehicle.turretAngle??vehicle.angle,vehicle.angle,dt*3.8);
         }
         if(vehicle.level===4&&vehicle.bombCooldown<=0){
           const target=enemies.filter(e=>!e.dead&&Math.hypot(e.x-vehicle.x,e.y-vehicle.y)<=vehicle.range+35).sort((a,b)=>b.distance-a.distance)[0];
@@ -1203,7 +1210,7 @@
       ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(mouse.x, mouse.y, type.range, 0, TAU); ctx.stroke();
       ctx.globalAlpha = .72;
-      drawTowerModel(type, mouse.x, mouse.y, .82, -Math.PI / 2);
+      drawTowerModel(type, mouse.x, mouse.y, .82, towerRestAngle(type));
       ctx.restore();
     }
 
@@ -1361,12 +1368,12 @@
       if(tower.type.id==="military"){
         tower.deployTimer-=dt;if(tower.deployTimer<=0)deployVehicle(tower,false);return;
       }
-      if(tower.type.id==="helicopter"||tower.type.id==="airplane"){
+      const flying=tower.type.id==="helicopter"||tower.type.id==="airplane";
+      if(flying){
         tower.orbit+=dt*(tower.type.id==="helicopter"?0.72:1.05);
         const radius=tower.type.id==="helicopter"?52:78;
         tower.combatX=tower.x+Math.cos(tower.orbit)*radius;
         tower.combatY=tower.y+Math.sin(tower.orbit)*(tower.type.id==="helicopter"?30:44);
-        if(!tower.target)tower.angle=Math.atan2(Math.cos(tower.orbit)*(tower.type.id==="helicopter"?30:44),-Math.sin(tower.orbit)*radius);
       }else{tower.combatX=tower.x;tower.combatY=tower.y;}
       tower.cooldown -= dt;
       if (tower.target && (tower.target.dead || Math.hypot(tower.target.x - tower.combatX, tower.target.y - tower.combatY) > tower.range)) tower.target = null;
@@ -1377,7 +1384,9 @@
         }
         tower.target = best;
       }
-      if (tower.target) tower.angle = Math.atan2(tower.target.y - tower.combatY, tower.target.x - tower.combatX);
+      if(tower.target)tower.angle=Math.atan2(tower.target.y-tower.combatY,tower.target.x-tower.combatX);
+      else if(flying)tower.angle=Math.atan2(Math.cos(tower.orbit)*(tower.type.id==="helicopter"?30:44),-Math.sin(tower.orbit)*(tower.type.id==="helicopter"?52:78));
+      else tower.angle=moveAngleTowards(tower.angle,towerRestAngle(tower.type),dt*3.8);
       if (tower.target && tower.cooldown <= 0) {
         fireTower(tower, tower.target);
         sfx("shoot",tower.type.id);
@@ -1668,8 +1677,8 @@
       fillRounded(250,150,780,520,26,"rgba(7,22,31,.97)",step.accent,3);
       text(`QUICK TRAINING  ${tutorialStep+1}/4`,W/2,192,14,"#789aa9","center",900);
       text(step.title,W/2,235,30,step.accent,"center",950);
-      if(tutorialStep===0){for(let i=0;i<3;i++){fillRounded(400+i*160,300,130,120,15,"#102c38",i===0?"#ffd45a":"#315566",i===0?4:2);drawTowerModel(TOWER_TYPES[i],465+i*160,354,.75,0);}}
-      else if(tutorialStep===1){ctx.globalAlpha=.2;ctx.fillStyle="#70e9b0";ctx.beginPath();ctx.arc(W/2,356,105,0,TAU);ctx.fill();ctx.globalAlpha=.8;ctx.strokeStyle="#70e9b0";ctx.lineWidth=3;ctx.stroke();ctx.globalAlpha=1;drawTowerModel(TOWER_TYPES[0],W/2,356,1.15,-.2);text("☝",W/2+118,385,42,"#fff","center",800);}
+      if(tutorialStep===0){for(let i=0;i<3;i++){fillRounded(400+i*160,300,130,120,15,"#102c38",i===0?"#ffd45a":"#315566",i===0?4:2);drawTowerModel(TOWER_TYPES[i],465+i*160,354,.75,towerRestAngle(TOWER_TYPES[i]));}}
+      else if(tutorialStep===1){ctx.globalAlpha=.2;ctx.fillStyle="#70e9b0";ctx.beginPath();ctx.arc(W/2,356,105,0,TAU);ctx.fill();ctx.globalAlpha=.8;ctx.strokeStyle="#70e9b0";ctx.lineWidth=3;ctx.stroke();ctx.globalAlpha=1;drawTowerModel(TOWER_TYPES[0],W/2,356,1.15,towerRestAngle(TOWER_TYPES[0]));text("☝",W/2+118,385,42,"#fff","center",800);}
       else if(tutorialStep===2){drawTowerModel(TOWER_TYPES[4],W/2-120,352,1.25,.1,3);fillRounded(W/2+10,305,245,105,14,"#112d3b","#bd8cff",2);text("UPGRADE",W/2+132,335,17,"#fff","center",950);text("TARGET: STRONG",W/2+132,365,14,"#aee8ff","center",850);text("SELL",W/2+132,392,13,"#ffb6a8","center",850);}
       else {for(let i=0;i<4;i++){const r={x:425+i*105,y:320,w:82,h:55};fillRounded(r.x,r.y,r.w,r.h,11,i===2?"#168bb4":"#102c38",i===2?"#8ceaff":"#315566",2);text(`${[1,2,3,5][i]}×`,r.x+r.w/2,r.y+r.h/2,18,"#fff","center",950);}fillRounded(875,320,60,55,11,"#b4682e","#ffd28a",2);text("Ⅱ",905,347,20,"#fff","center",950);}
       wrapText(step.body,W/2,478,610,20,28,"#d7ecf4",2);
@@ -1829,7 +1838,7 @@
           if (!isValidPlacement(x,y)) { toast={text:"A tower cannot be placed here",time:1.4,color:"#ff6d76"}; return; }
           gold-=price;
           placedCounts[type.id]=(placedCounts[type.id]||0)+1;
-          const built={x,y,type,level:1,purchaseCost:price,upgradeSpent:0,targetMode:"first",damage:type.damage,range:type.range,rate:type.rate,cooldown:.15,target:null,angle:-Math.PI/2,orbit:Math.random()*TAU,combatX:x,combatY:y};
+          const built={x,y,type,level:1,purchaseCost:price,upgradeSpent:0,targetMode:"first",damage:type.damage,range:type.range,rate:type.rate,cooldown:.15,target:null,angle:towerRestAngle(type),orbit:Math.random()*TAU,combatX:x,combatY:y};
           applyLevelStats(built);towers.push(built);
           sfx("build");
           burst(x,y,type.color,14,80);
