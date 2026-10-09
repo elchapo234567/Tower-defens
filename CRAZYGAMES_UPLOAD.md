@@ -2,7 +2,7 @@
 
 ## Ready-to-upload build
 
-The file `release/mega-tower-defense-crazygames.zip` is the finished HTML5 game package. `index.html` is located directly at the root of the ZIP archive. The game loads the official CrazyGames HTML5 SDK v3 and uses only its Rewarded Ad interface.
+The file `release/mega-tower-defense-crazygames.zip` is the finished HTML5 game package. `index.html` and the `assets` folder are located directly at the root of the ZIP archive. The game loads the official CrazyGames HTML5 SDK v3 and uses only its Rewarded Ad interface.
 
 ## CrazyGames Portal
 
@@ -14,7 +14,9 @@ The file `release/mega-tower-defense-crazygames.zip` is the finished HTML5 game 
    - **GET GEMS**: one fully completed ad awards exactly 5 Gems.
    - Cancelled or failed ads award nothing.
    - **Shop → Free Tower**: each completed ad increases the counter exactly once; at 5/5 the player can choose one locked tower.
+   - Complete or skip the first-run tutorial.
    - Start, pause, lose, and win a mission.
+   - Test the game in desktop and mobile landscape mode.
    - Reload the page and confirm that progress is retained.
 6. Submit the build for review after completing the preview test.
 
@@ -24,10 +26,15 @@ Rewarded Ads intentionally work only inside the CrazyGames environment. The ad b
 
 **Controls**
 
-- Left click: use menus, place towers, and buy upgrades
-- Right click or Escape: cancel tower placement
+- Mouse / touch: use menus, place towers, select towers, upgrade, sell, and change targeting
+- Right click or tap the selected arsenal card again: cancel tower placement
 - Number keys 1–5: select a tower from the arsenal
-- Spacebar: change the game speed
+- Spacebar: cycle through 1×, 2×, 3×, and 5× game speed
+- P: pause or resume the battle
+
+**Description**
+
+Build the ultimate defense across lush floating islands, frozen rifts, and volcanic strongholds. Choose your loadout, place and upgrade 14 specialized towers, deploy helicopters, aircraft, and military vehicles, then adapt their targeting to survive 18 increasingly brutal missions. Earn Gems every three cleared waves, defeat multi-boss assaults, unlock new towers and loadout slots, and master every battlefield on your way to the Final Stand.
 
 **Progress**
 
@@ -40,5 +47,6 @@ Gems, missions, towers, loadout slots, and Free Tower ad progress are stored in 
 - `adError` and cancelled ads do not grant rewards or consume progress.
 - Additional input is blocked while an ad is running.
 - Loading, gameplay start, and gameplay stop events are reported through the CrazyGames SDK.
+- `loadingStop` is sent only after all high-resolution gameplay artwork has loaded.
 
 Official reference: [CrazyGames HTML5 SDK – Advertisement](https://docs.crazygames.com/sdk/html5/advertisement/)
