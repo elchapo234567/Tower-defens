@@ -91,7 +91,32 @@
       levelMortar: "assets/towers/levels/mortar.webp",
       levelChrono: "assets/towers/levels/chrono.webp",
       levelMilitary: "assets/towers/levels/military.webp",
-      levelVehicles: "assets/towers/levels/vehicles.webp"
+      levelVehicles: "assets/towers/levels/vehicles.webp",
+      mission01: "assets/maps/missions/mission-01.webp",
+      mission02: "assets/maps/missions/mission-02.webp",
+      mission03: "assets/maps/missions/mission-03.webp",
+      mission04: "assets/maps/missions/mission-04.webp",
+      mission05: "assets/maps/missions/mission-05.webp",
+      mission06: "assets/maps/missions/mission-06.webp",
+      mission07: "assets/maps/missions/mission-07.webp",
+      mission08: "assets/maps/missions/mission-08.webp",
+      mission09: "assets/maps/missions/mission-09.webp",
+      mission10: "assets/maps/missions/mission-10.webp",
+      mission11: "assets/maps/missions/mission-11.webp",
+      mission12: "assets/maps/missions/mission-12.webp",
+      mission13: "assets/maps/missions/mission-13.webp",
+      mission14: "assets/maps/missions/mission-14.webp",
+      mission15: "assets/maps/missions/mission-15.webp",
+      mission16: "assets/maps/missions/mission-16.webp",
+      mission17: "assets/maps/missions/mission-17.webp",
+      mission18: "assets/maps/missions/mission-18.webp",
+      enemyNormal: "assets/enemies/normal.webp",
+      enemyFast: "assets/enemies/fast.webp",
+      enemyArmored: "assets/enemies/armored.webp",
+      enemyPhantom: "assets/enemies/phantom.webp",
+      enemyBrute: "assets/enemies/brute.webp",
+      enemySwarm: "assets/enemies/swarm.webp",
+      enemyBoss: "assets/enemies/boss.webp"
     };
     const art = {};
     let artReady = false;
@@ -134,6 +159,8 @@
     let soundEnabled = true;
     let audioContext = null;
     let audioNoiseBuffer = null;
+    const SOUND_SOURCES={click:"assets/audio/click.ogg",build:"assets/audio/build.ogg",upgrade:"assets/audio/upgrade.ogg",wave:"assets/audio/wave.ogg",hit:"assets/audio/hit.ogg",explosion:"assets/audio/explosion.ogg",blaster:"assets/audio/blaster.ogg",repeater:"assets/audio/repeater.ogg"};
+    const soundSamples={};
     const lastSoundAt = {};
     let toast = { text: "", time: 0, color: "#fff" };
     let gems = 0;
@@ -183,11 +210,26 @@
       } catch (_) { audioContext = null;audioNoiseBuffer=null; }
     }
 
+    function preloadSounds(){
+      for(const [key,source] of Object.entries(SOUND_SOURCES)){const audio=new Audio(source);audio.preload="auto";soundSamples[key]=audio;}
+    }
+
+    function playSoundSample(name,variant=""){
+      let key=name;
+      if(name==="shoot")key=["laser","plasma","tesla","ice"].includes(variant)?"blaster":"repeater";
+      const source=soundSamples[key];if(!source)return false;
+      const audio=source.cloneNode();
+      audio.volume=name==="shoot"?.16:name==="explosion"?.32:name==="wave"?.28:name==="hit"?.2:.25;
+      if(name==="shoot")audio.playbackRate=.92+Math.random()*.16;
+      audio.play().catch(()=>{});return true;
+    }
+
     function sfx(name,variant="") {
       if (!soundEnabled || !audioContext) return;
       const now = audioContext.currentTime;
       const key=`${name}:${variant}`,minimum=name==="shoot"?((variant==="gun"||variant==="helicopter")?0.11:0.18):name==="explosion"?0.2:0.025;
       if(now-(lastSoundAt[key]||-99)<minimum)return;lastSoundAt[key]=now;
+      if(playSoundSample(name,variant))return;
       const tone=(start,end,duration,type="sine",volume=.025,delay=0)=>{const osc=audioContext.createOscillator(),gain=audioContext.createGain(),t=now+delay;osc.type=type;osc.frequency.setValueAtTime(start,t);osc.frequency.exponentialRampToValueAtTime(Math.max(30,end),t+duration);gain.gain.setValueAtTime(.0001,t);gain.gain.exponentialRampToValueAtTime(volume,t+.008);gain.gain.exponentialRampToValueAtTime(.0001,t+duration);osc.connect(gain);gain.connect(audioContext.destination);osc.start(t);osc.stop(t+duration+.02);};
       const noise=(duration,volume=.02,cutoff=900,delay=0)=>{if(!audioNoiseBuffer)return;const source=audioContext.createBufferSource(),filter=audioContext.createBiquadFilter(),gain=audioContext.createGain(),t=now+delay;source.buffer=audioNoiseBuffer;filter.type="lowpass";filter.frequency.setValueAtTime(cutoff,t);gain.gain.setValueAtTime(volume,t);gain.gain.exponentialRampToValueAtTime(.0001,t+duration);source.connect(filter);filter.connect(gain);gain.connect(audioContext.destination);source.start(t,Math.random()*.6,duration);};
       if(name==="click"){tone(560,430,.055,"sine",.018);}
@@ -321,8 +363,8 @@
       },
       {
         id: "mortar", name: "MORTAR TOWER", short: "MORTAR", cost: 255, unlock: 13,
-        damage: 86, range: 245, rate: .42, color: "#c7a56c", accent: "#fff0c9", splash: 88,
-        description: "Slow shells deal heavy area damage."
+        damage: 86, range: 330, minRange: 105, rate: .42, color: "#c7a56c", accent: "#fff0c9", splash: 105,
+        description: "Long-range bombardment with a close dead zone."
       },
       {
         id: "chrono", name: "CHRONO TOWER", short: "CHRONO", cost: 240, unlock: 14,
@@ -352,6 +394,10 @@
       sun:["levelSun",0,false],helicopter:["levelHelicopter",.75,true],airplane:["levelAirplane",Math.PI/2,true],
       mortar:["levelMortar",-2.05,true],chrono:["levelChrono",0,false],military:["levelMilitary",0,false]
     };
+
+    function missionArtwork(index){return art[`mission${String(index+1).padStart(2,"0")}`];}
+    function enemyArtwork(kind){return art[`enemy${kind[0].toUpperCase()}${kind.slice(1)}`];}
+    function enemyArtworkSize(kind){return({normal:70,fast:64,armored:82,phantom:72,brute:92,swarm:56,boss:116})[kind]||72;}
 
     function towerRestAngle(type){return TOWER_ART[type.id]?.[1]||0;}
     function moveAngleTowards(current,target,maxStep){
@@ -576,7 +622,7 @@
         ctx.save();ctx.shadowColor=hover?mission.color:"rgba(0,0,0,.5)";ctx.shadowBlur=hover?22:7;
         fillRounded(r.x,r.y-(hover?4:0),r.w,r.h,18,unlocked?"#102635":"#0a1720",complete?"#ffd45a":hover?mission.color:"rgba(125,203,232,.25)",complete?3:hover?4:2);ctx.restore();
         const preview={x:r.x+15,y:r.y+15,w:130,h:r.h-30};const pg=ctx.createLinearGradient(0,preview.y,0,preview.y+preview.h);pg.addColorStop(0,map.ground[0]);pg.addColorStop(1,map.ground[1]);fillRounded(preview.x,preview.y,preview.w,preview.h,12,pg);
-        const previewArt=[art.emerald,art.frost,art.volcanic][mission.map];if(previewArt){ctx.save();roundedRect(preview.x,preview.y,preview.w,preview.h,12);ctx.clip();const targetAspect=preview.w/preview.h,imageAspect=previewArt.width/previewArt.height;let sx=0,sy=0,sw=previewArt.width,sh=previewArt.height;if(imageAspect>targetAspect){sw=sh*targetAspect;sx=(previewArt.width-sw)/2;}else{sh=sw/targetAspect;sy=(previewArt.height-sh)/2;}ctx.drawImage(previewArt,sx,sy,sw,sh,preview.x,preview.y,preview.w,preview.h);ctx.fillStyle="rgba(2,9,14,.2)";ctx.fillRect(preview.x,preview.y,preview.w,preview.h);ctx.restore();}
+        const previewArt=missionArtwork(i)||[art.emerald,art.frost,art.volcanic][mission.map];if(previewArt){ctx.save();roundedRect(preview.x,preview.y,preview.w,preview.h,12);ctx.clip();const targetAspect=preview.w/preview.h,imageAspect=previewArt.width/previewArt.height;let sx=0,sy=0,sw=previewArt.width,sh=previewArt.height;if(imageAspect>targetAspect){sw=sh*targetAspect;sx=(previewArt.width-sw)/2;}else{sh=sw/targetAspect;sy=(previewArt.height-sh)/2;}ctx.drawImage(previewArt,sx,sy,sw,sh,preview.x,preview.y,preview.w,preview.h);ctx.fillStyle="rgba(2,9,14,.2)";ctx.fillRect(preview.x,preview.y,preview.w,preview.h);ctx.restore();}
         if(!previewArt)drawMiniPath(map.path,preview,map.road);
         if(!unlocked){ctx.fillStyle="rgba(2,7,11,.7)";ctx.fillRect(preview.x,preview.y,preview.w,preview.h);text("🔒",preview.x+preview.w/2,preview.y+preview.h/2,30,"#82929a","center",800);}
         text(`MISSION ${String(i+1).padStart(2,"0")}`,r.x+165,r.y+20,11,unlocked?"#668794":"#3c4c53","left",900);
@@ -827,7 +873,7 @@
 
     function drawField() {
       const map=MAPS[selectedMap];
-      const mapImage=[art.emerald,art.frost,art.volcanic][selectedMap];
+      const mapImage=missionArtwork(selectedMission)||[art.emerald,art.frost,art.volcanic][selectedMap];
       if(mapImage){ctx.drawImage(mapImage,0,0,W,FIELD_H);ctx.fillStyle=selectedMap===2?"rgba(20,3,4,.08)":"rgba(2,12,17,.06)";ctx.fillRect(0,0,W,FIELD_H);}
       else {
         const bg = ctx.createLinearGradient(0, 0, 0, FIELD_H);bg.addColorStop(0, map.ground[0]);bg.addColorStop(1, map.ground[1]);ctx.fillStyle = bg;ctx.fillRect(0, 0, W, FIELD_H);
@@ -975,7 +1021,8 @@
         const t=selectedPlacedTower,cost=upgradeCost(t),max=t.level>=4;
         text(`${t.type.short}  •  LEVEL ${t.level}`,1095,676,15,t.type.accent,"center",950);
         text(towerAbility(t),1095,698,13,t.type.color,"center",850);
-        text(t.type.id==="military"?`Vehicle ${t.vehicleHp} HP  •  Deploy ${Math.ceil(t.deployTimer)}s`:`DMG ${Math.round(t.damage)}  •  RNG ${Math.round(t.range)}  •  ${t.targetMode==="strong"?"STRONG":"FIRST"}`,1095,718,12,"#c3dce6","center",700);
+        const combatStats=t.type.id==="military"?`Vehicle ${t.vehicleHp} HP  •  Deploy ${Math.ceil(t.deployTimer)}s`:t.minRange?`DMG ${Math.round(t.damage)}  •  RANGE ${Math.round(t.minRange)}–${Math.round(t.range)}`:`DMG ${Math.round(t.damage)}  •  RNG ${Math.round(t.range)}  •  ${t.targetMode==="strong"?"STRONG":"FIRST"}`;
+        text(combatStats,1095,718,12,"#c3dce6","center",700);
         const r=upgradeButtonRect();button(r,max?"MAXIMUM":`UPGRADE  ${cost} G`,t.type.color,!max&&gold>=cost);
         const sell=sellButtonRect(),target=targetButtonRect();fillRounded(sell.x,sell.y,sell.w,sell.h,7,"#50312f","#c57e70",1);text(`SELL ${sellValue(t)} G`,sell.x+sell.w/2,sell.y+sell.h/2,11,"#ffd2c7","center",900);fillRounded(target.x,target.y,target.w,target.h,7,"#183644","#4b99b5",1);text(t.targetMode==="strong"?"TARGET: STRONG":"TARGET: FIRST",target.x+target.w/2,target.y+target.h/2,10,"#bfefff","center",900);
       } else if (selectedTowerType) {
@@ -1155,12 +1202,13 @@
       }else{
         tower.damage=type.damage*Math.pow(1.34,l-1);tower.range=type.range*(1+.075*(l-1));tower.rate=type.rate*Math.pow(1.13,l-1);
       }
+      tower.minRange=type.minRange||0;
     }
 
     function deployVehicle(base,waveStart=false){
       if(!base||base.type.id!=="military")return;
       const p=pointAtDistance(totalPathLength-25),level=base.level;
-      vehicles.push({base,level,x:p.x,y:p.y,distance:totalPathLength-25,hp:base.vehicleHp,maxHp:base.vehicleHp,speed:base.vehicleSpeed,range:level>=3?base.range:0,cooldown:.2,bombCooldown:1,dead:false,angle:Math.PI,turretAngle:Math.PI});
+      vehicles.push({base,level,x:p.x,y:p.y,distance:totalPathLength-25,hp:base.vehicleHp,maxHp:base.vehicleHp,speed:base.vehicleSpeed,range:level>=3?base.range:0,cooldown:.2,bombCooldown:1,dead:false,angle:Math.PI,turretAngle:Math.PI,turretAimTimer:0});
       base.deployTimer=60;
       burst(p.x,p.y,base.type.color,waveStart?20:12,90);
     }
@@ -1170,11 +1218,13 @@
         if(vehicle.dead)continue;
         vehicle.distance-=vehicle.speed*dt;const p=pointAtDistance(vehicle.distance);vehicle.x=p.x;vehicle.y=p.y;
         const ahead=pointAtDistance(Math.max(0,vehicle.distance-5));vehicle.angle=Math.atan2(ahead.y-vehicle.y,ahead.x-vehicle.x);
-        vehicle.cooldown-=dt;vehicle.bombCooldown-=dt;
+        vehicle.cooldown-=dt;vehicle.bombCooldown-=dt;vehicle.turretAimTimer=Math.max(0,(vehicle.turretAimTimer||0)-dt);
         if(vehicle.level>=3){
           const target=enemies.filter(e=>!e.dead&&Math.hypot(e.x-vehicle.x,e.y-vehicle.y)<=vehicle.range).sort((a,b)=>b.distance-a.distance)[0];
-          if(target){vehicle.turretAngle=Math.atan2(target.y-vehicle.y,target.x-vehicle.x);if(vehicle.cooldown<=0){const damage=vehicle.level===4?34:19;damageEnemy(target,damage,"vehicle");effects.push({type:"gun",x:vehicle.x,y:vehicle.y,tx:target.x,ty:target.y,life:.1,maxLife:.1,color:"#dfff9e"});sfx("shoot","vehicle");vehicle.cooldown=vehicle.level===4 ? .25 : .42;}}
-          else vehicle.turretAngle=moveAngleTowards(vehicle.turretAngle??vehicle.angle,vehicle.angle,dt*3.8);
+          const readyToAim=target&&(vehicle.turretAimTimer>0||vehicle.cooldown<=.1);
+          if(readyToAim)vehicle.turretAngle=moveAngleTowards(vehicle.turretAngle??vehicle.angle,Math.atan2(target.y-vehicle.y,target.x-vehicle.x),dt*8);
+          else vehicle.turretAngle=moveAngleTowards(vehicle.turretAngle??vehicle.angle,vehicle.angle,dt*5.2);
+          if(target&&vehicle.cooldown<=0){vehicle.turretAngle=Math.atan2(target.y-vehicle.y,target.x-vehicle.x);const damage=vehicle.level===4?34:19;damageEnemy(target,damage,"vehicle");effects.push({type:"gun",x:vehicle.x,y:vehicle.y,tx:target.x,ty:target.y,life:.1,maxLife:.1,color:"#dfff9e"});sfx("shoot","vehicle");vehicle.cooldown=vehicle.level===4 ? .25 : .42;vehicle.turretAimTimer=.075;}
         }
         if(vehicle.level===4&&vehicle.bombCooldown<=0){
           const target=enemies.filter(e=>!e.dead&&Math.hypot(e.x-vehicle.x,e.y-vehicle.y)<=vehicle.range+35).sort((a,b)=>b.distance-a.distance)[0];
@@ -1188,11 +1238,9 @@
     }
 
     function drawPlacedTower(tower) {
-      const target = tower.target && !tower.target.dead ? tower.target : null;
       const tx=tower.combatX??tower.x,ty=tower.combatY??tower.y;
-      const angle = target ? Math.atan2(target.y - ty, target.x - tx) : tower.angle;
-      tower.angle = angle;
-      if(selectedPlacedTower===tower){ctx.save();ctx.globalAlpha=.18;ctx.fillStyle=tower.type.color;ctx.beginPath();ctx.arc(tower.x,tower.y,tower.range,0,TAU);ctx.fill();ctx.globalAlpha=.8;ctx.strokeStyle=tower.type.color;ctx.lineWidth=2;ctx.stroke();ctx.restore();}
+      const angle = Number.isFinite(tower.angle) ? tower.angle : towerRestAngle(tower.type);
+      if(selectedPlacedTower===tower){ctx.save();ctx.globalAlpha=.18;ctx.fillStyle=tower.type.color;ctx.beginPath();ctx.arc(tower.x,tower.y,tower.range,0,TAU);ctx.fill();if(tower.minRange>0){ctx.globalAlpha=.28;ctx.fillStyle="#ff604f";ctx.beginPath();ctx.arc(tower.x,tower.y,tower.minRange,0,TAU);ctx.fill();}ctx.globalAlpha=.8;ctx.strokeStyle=tower.type.color;ctx.lineWidth=2;ctx.beginPath();ctx.arc(tower.x,tower.y,tower.range,0,TAU);ctx.stroke();if(tower.minRange>0){ctx.strokeStyle="#ff806d";ctx.setLineDash([9,7]);ctx.beginPath();ctx.arc(tower.x,tower.y,tower.minRange,0,TAU);ctx.stroke();ctx.setLineDash([]);}ctx.restore();}
       if(tower.type.id==="helicopter"||tower.type.id==="airplane")drawAirPad(tower);
       drawTowerModel(tower.type, tx, ty, tower.type.id==="military"?0.9:0.82, angle,tower.level);
     }
@@ -1209,6 +1257,7 @@
       ctx.strokeStyle = valid ? type.color : "#ff4355";
       ctx.lineWidth = 3;
       ctx.beginPath(); ctx.arc(mouse.x, mouse.y, type.range, 0, TAU); ctx.stroke();
+      if(type.minRange){ctx.globalAlpha=.28;ctx.fillStyle="#ff604f";ctx.beginPath();ctx.arc(mouse.x,mouse.y,type.minRange,0,TAU);ctx.fill();ctx.globalAlpha=.8;ctx.strokeStyle="#ff806d";ctx.setLineDash([9,7]);ctx.beginPath();ctx.arc(mouse.x,mouse.y,type.minRange,0,TAU);ctx.stroke();ctx.setLineDash([]);}
       ctx.globalAlpha = .72;
       drawTowerModel(type, mouse.x, mouse.y, .82, towerRestAngle(type));
       ctx.restore();
@@ -1376,21 +1425,26 @@
         tower.combatY=tower.y+Math.sin(tower.orbit)*(tower.type.id==="helicopter"?30:44);
       }else{tower.combatX=tower.x;tower.combatY=tower.y;}
       tower.cooldown -= dt;
-      if (tower.target && (tower.target.dead || Math.hypot(tower.target.x - tower.combatX, tower.target.y - tower.combatY) > tower.range)) tower.target = null;
+      tower.aimTimer=Math.max(0,(tower.aimTimer||0)-dt);
+      if(tower.target){const targetDistance=Math.hypot(tower.target.x-tower.combatX,tower.target.y-tower.combatY);if(tower.target.dead||targetDistance>tower.range||targetDistance<(tower.minRange||0))tower.target=null;}
       if (!tower.target) {
         let best = null;
         for (const enemy of enemies) {
-          if (!enemy.dead && Math.hypot(enemy.x - tower.combatX, enemy.y - tower.combatY) <= tower.range && (!best || (tower.targetMode==="strong"?enemy.hp>best.hp:enemy.distance>best.distance))) best = enemy;
+          const targetDistance=Math.hypot(enemy.x-tower.combatX,enemy.y-tower.combatY);
+          if(!enemy.dead&&targetDistance<=tower.range&&targetDistance>=(tower.minRange||0)&&(!best||(tower.targetMode==="strong"?enemy.hp>best.hp:enemy.distance>best.distance)))best=enemy;
         }
         tower.target = best;
       }
-      if(tower.target)tower.angle=Math.atan2(tower.target.y-tower.combatY,tower.target.x-tower.combatX);
-      else if(flying)tower.angle=Math.atan2(Math.cos(tower.orbit)*(tower.type.id==="helicopter"?30:44),-Math.sin(tower.orbit)*(tower.type.id==="helicopter"?52:78));
-      else tower.angle=moveAngleTowards(tower.angle,towerRestAngle(tower.type),dt*3.8);
+      const neutralAngle=flying?Math.atan2(Math.cos(tower.orbit)*(tower.type.id==="helicopter"?30:44),-Math.sin(tower.orbit)*(tower.type.id==="helicopter"?52:78)):towerRestAngle(tower.type);
+      const preAimWindow=tower.rate>0?Math.min(.14,(1/tower.rate)*.34):0;
+      if(tower.target&&(tower.aimTimer>0||tower.cooldown<=preAimWindow))tower.angle=moveAngleTowards(tower.angle,Math.atan2(tower.target.y-tower.combatY,tower.target.x-tower.combatX),dt*9);
+      else tower.angle=moveAngleTowards(tower.angle,neutralAngle,dt*5.2);
       if (tower.target && tower.cooldown <= 0) {
+        tower.angle=Math.atan2(tower.target.y-tower.combatY,tower.target.x-tower.combatX);
         fireTower(tower, tower.target);
         sfx("shoot",tower.type.id);
         tower.cooldown = 1 / tower.rate;
+        tower.aimTimer=.075;
       }
     }
 
@@ -1500,7 +1554,9 @@
       }
       if(enemy.poison>0){ctx.strokeStyle="rgba(112,244,83,.7)";ctx.lineWidth=2;ctx.setLineDash([4,6]);ctx.beginPath();ctx.arc(0,0,r+9,elapsed,elapsed+Math.PI*1.6);ctx.stroke();ctx.setLineDash([]);}
       if(enemy.burn>0){ctx.fillStyle="rgba(255,126,49,.55)";for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(-8+i*8,-r-4-Math.sin(elapsed*8+i)*4,3+i,0,TAU);ctx.fill();}}
-      if (enemy.kind === "normal") drawNormalMonster(r);
+      const enemyImage=enemyArtwork(enemy.kind),enemySize=enemyArtworkSize(enemy.kind);
+      if(enemyImage){ctx.shadowColor=enemy.data.color;ctx.shadowBlur=enemy.kind==="boss"?20:10;ctx.drawImage(enemyImage,-enemySize/2,-enemySize/2,enemySize,enemySize);}
+      else if (enemy.kind === "normal") drawNormalMonster(r);
       else if (enemy.kind === "fast") drawFastMonster(r);
       else if(enemy.kind==="armored")drawArmoredMonster(r);
       else if(enemy.kind==="phantom")drawPhantomMonster(r);
@@ -1570,7 +1626,7 @@
 
     function drawEnemyHealth(enemy) {
       const w = enemy.kind === "boss" ? 82 : 48;
-      const y = enemy.y - enemy.data.radius - 16;
+      const y = enemy.y - Math.max(enemy.data.radius,enemyArtwork(enemy.kind)?enemyArtworkSize(enemy.kind)/2:0) - 12;
       fillRounded(enemy.x - w / 2, y, w, 8, 4, "rgba(8,14,18,.85)");
       const ratio = Math.max(0, enemy.hp / enemy.maxHp);
       if (ratio > 0) fillRounded(enemy.x - w / 2 + 2, y + 2, (w - 4) * ratio, 4, 2, ratio > .5 ? "#5fe066" : ratio > .22 ? "#ffd34d" : "#ff4d5d");
@@ -1838,7 +1894,7 @@
           if (!isValidPlacement(x,y)) { toast={text:"A tower cannot be placed here",time:1.4,color:"#ff6d76"}; return; }
           gold-=price;
           placedCounts[type.id]=(placedCounts[type.id]||0)+1;
-          const built={x,y,type,level:1,purchaseCost:price,upgradeSpent:0,targetMode:"first",damage:type.damage,range:type.range,rate:type.rate,cooldown:.15,target:null,angle:towerRestAngle(type),orbit:Math.random()*TAU,combatX:x,combatY:y};
+          const built={x,y,type,level:1,purchaseCost:price,upgradeSpent:0,targetMode:"first",damage:type.damage,range:type.range,rate:type.rate,cooldown:.15,target:null,angle:towerRestAngle(type),aimTimer:0,orbit:Math.random()*TAU,combatX:x,combatY:y};
           applyLevelStats(built);towers.push(built);
           sfx("build");
           burst(x,y,type.color,14,80);
@@ -1888,6 +1944,7 @@
 
     loadProgress();
     initMotes();
+    preloadSounds();
     preloadArt();
     window.addEventListener("crazygames-sdk-ready",initializeCrazySdk);
     initializeCrazySdk();

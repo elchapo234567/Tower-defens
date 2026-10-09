@@ -4,7 +4,7 @@
 
 The file `release/mega-tower-defense-crazygames.zip` is the finished HTML5 game package. `index.html` and the `assets` folder are located directly at the root of the ZIP archive. The game loads the official CrazyGames HTML5 SDK v3 and uses only its Rewarded Ad interface. To test outside CrazyGames, extract the ZIP first and serve its directory through a local web server; do not open `index.html` from inside the ZIP viewer.
 
-The build includes three top-down battlefields with roads baked into the artwork, 56 distinct tower upgrade appearances, four military vehicle appearances, directional targeting, and procedural Web Audio effects. No network-hosted art or audio files are needed at runtime.
+The build includes 18 individual top-down mission battlefields with roads baked into the artwork, seven original monster classes, 56 distinct tower upgrade appearances, four military vehicle appearances, directional targeting with animated return-to-rest movement, and locally bundled CC0 Kenney sound effects. No network-hosted art or audio files are needed at runtime.
 
 ## CrazyGames Portal
 
@@ -28,16 +28,16 @@ Rewarded Ads intentionally work only inside the CrazyGames environment. The ad b
 
 **Controls**
 
-- Mouse / touch: use menus, place towers, select towers, upgrade, sell, and change targeting
-- Start Wave button: launch the next attack immediately when your defense is ready
-- Right click or tap the selected arsenal card again: cancel tower placement
-- Number keys 1–5: select a tower from the arsenal
-- Spacebar: cycle through 1×, 2×, 3×, and 5× game speed
-- P: pause or resume the battle
+- **Mouse / touch:** Navigate menus, choose and place towers, select units, upgrade, sell, and change targeting.
+- **Start Wave:** Launch the next attack as soon as your defense is ready.
+- **Right-click / tap the selected arsenal card again:** Cancel tower placement.
+- **1–5:** Select a tower from your current loadout.
+- **Space:** Cycle through 1×, 2×, 3×, and 5× battle speed.
+- **P:** Pause or resume the battle.
 
 **Description**
 
-Build the ultimate defense across lush floating islands, frozen rifts, and volcanic strongholds. Choose your loadout, place and upgrade 14 specialized high-detail towers, deploy helicopters, aircraft, and military vehicles, then adapt their targeting to survive 18 increasingly brutal missions. Start each assault when your defense is ready, earn Gems every three cleared waves, defeat multi-boss attacks, unlock new towers and loadout slots, and master every battlefield on your way to the Final Stand.
+Command the ultimate defense across 18 handcrafted battlefields, from crystal forests and frozen rifts to volcanic fortresses and cosmic war zones. Build and upgrade 14 specialized towers, deploy helicopters, strike aircraft, combat vehicles, and siege tanks, then adapt your targeting to stop seven distinct monster classes. Master long-range mortar fire with a close-range blind spot, survive increasingly brutal multi-boss assaults, earn Gems every three cleared waves, unlock new towers and loadout slots, and fight your way to the Final Stand.
 
 **Progress**
 
@@ -53,3 +53,15 @@ Gems, missions, towers, loadout slots, and Free Tower ad progress are stored in 
 - `loadingStop` is sent only after all high-resolution gameplay artwork has loaded.
 
 Official reference: [CrazyGames HTML5 SDK – Advertisement](https://docs.crazygames.com/sdk/html5/advertisement/)
+
+## Quality-guideline audit
+
+- **Fast onboarding:** A new player enters the first mission immediately and receives a four-step visual tutorial covering selection, placement, upgrades, wave controls, speed, and pause.
+- **Skippable training:** `SKIP TUTORIAL` is available throughout onboarding; `HOW TO PLAY` can reopen it later.
+- **Clear goals and feedback:** The wave target, lives, Gold, Gems, win state, boss alerts, placement range, mortar dead zone, upgrade information, and mission progression are always visible.
+- **Consistent controls:** Pointer and touch share the same actions. Keyboard shortcuts use number keys, Space, and P; no browser-sensitive Escape or Ctrl/Cmd shortcuts are required.
+- **Responsive layout:** The 16:10 canvas scales to the viewport, supports landscape touch play, and shows a rotate-device prompt in mobile portrait mode.
+- **Performance:** Artwork and sounds are local, images use WebP in gameplay, simulation steps are capped, and high game speeds use stable fixed-size update slices.
+- **Ads:** Rewarded ads start only from explicit buttons, rewards are granted only by `adFinished`, errors grant nothing, and inputs are blocked while an ad is active.
+- **Visual/audio consistency:** All mission, enemy, tower, vehicle, cover, and interface art follows the same fantasy sci-fi style. Bundled sound effects are documented CC0 assets from official Kenney repositories.
+- **Submission check still required:** Use the CrazyGames private Preview/Sandbox to verify real ad delivery, SDK events, persistence, audio, and mobile landscape behavior before submission.

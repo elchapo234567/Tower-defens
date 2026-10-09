@@ -1,0 +1,21 @@
+MEGA TOWER DEFENSE — CRAZYGAMES LISTING
+========================================
+
+DESCRIPTION
+
+Command the ultimate defense across 18 handcrafted battlefields, from crystal forests and frozen rifts to volcanic fortresses and cosmic war zones. Build and upgrade 14 specialized towers, deploy helicopters, strike aircraft, combat vehicles, and siege tanks, then adapt your targeting to stop seven distinct monster classes. Master long-range mortar fire with a close-range blind spot, survive increasingly brutal multi-boss assaults, earn Gems every three cleared waves, unlock new towers and loadout slots, and fight your way to the Final Stand.
+
+CONTROLS
+
+Mouse / touch: Navigate menus, choose and place towers, select units, upgrade, sell, and change targeting.
+Start Wave: Launch the next attack as soon as your defense is ready.
+Right-click / tap the selected arsenal card again: Cancel tower placement.
+1–5: Select a tower from your current loadout.
+Space: Cycle through 1×, 2×, 3×, and 5× battle speed.
+P: Pause or resume the battle.
+
+COVER FILES
+
+Landscape 16:9: marketing/covers/mega-tower-defense-landscape-1920x1080.png
+Portrait 2:3: marketing/covers/mega-tower-defense-portrait-800x1200.png
+Square 1:1: marketing/covers/mega-tower-defense-square-800x800.png
